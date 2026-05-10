@@ -1,7 +1,13 @@
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
 import type { NextConfig } from "next";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 const nextConfig: NextConfig = {
-  /* config options here */
+  turbopack: {
+    root: __dirname,
+  },
 };
 
 export default nextConfig;
