@@ -97,7 +97,7 @@ export function OrderBook() {
         <span className="text-right">Total ({coin})</span>
       </div>
 
-      <div role="rowgroup" aria-label="Asks">
+      <div role="rowgroup" aria-label="Asks" className="space-y-px">
         {askDisplay.length === 0
           ? Array.from({ length: ROWS_PER_SIDE }, (_, i) => (
               <SkeletonRow key={`ask-skel-${i}`} />
@@ -116,7 +116,7 @@ export function OrderBook() {
 
       <SpreadRow spread={spread} mid={mid} />
 
-      <div role="rowgroup" aria-label="Bids">
+      <div role="rowgroup" aria-label="Bids" className="space-y-px">
         {bidRows.length === 0
           ? Array.from({ length: ROWS_PER_SIDE }, (_, i) => (
               <SkeletonRow key={`bid-skel-${i}`} />
