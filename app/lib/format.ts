@@ -28,14 +28,39 @@ export function formatPrice(value: string | number): string {
   });
 }
 
-/** Size formatter — keeps 5 fractional digits like the reference UI. */
-export function formatSize(value: string | number): string {
+/** Size formatter — `decimals` defaults to 5 to match the BTC reference UI. */
+export function formatSize(value: string | number, decimals = 5): string {
   const num = typeof value === "string" ? Number(value) : value;
   if (!Number.isFinite(num)) return "—";
   return num.toLocaleString("en-US", {
-    minimumFractionDigits: 5,
-    maximumFractionDigits: 5,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   });
+}
+
+/**
+ * Compute the price tick implied by a sigfig precision and current price level.
+ * Hyperliquid's precision dropdown displays the tick (`0.001`, `0.01`, `10`),
+ * not the sigfig count, so we surface the same.
+ *
+ * `null` means full native precision; pass the asset's native tick as fallback.
+ */
+export function tickFromSigFigs(
+  price: number,
+  nSigFigs: number | null,
+  nativeTick: number,
+): number {
+  if (nSigFigs === null) return nativeTick;
+  if (!Number.isFinite(price) || price <= 0) return nativeTick;
+  const exp = Math.floor(Math.log10(price)) - nSigFigs + 1;
+  return Math.pow(10, exp);
+}
+
+export function formatTick(tick: number): string {
+  if (!Number.isFinite(tick) || tick <= 0) return "—";
+  if (tick >= 1) return tick.toLocaleString("en-US");
+  // Strip trailing zeros from sub-unit ticks: 0.001 not 0.00100
+  return tick.toString();
 }
 
 /**

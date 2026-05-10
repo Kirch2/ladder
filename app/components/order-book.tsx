@@ -3,18 +3,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   COINS,
+  NATIVE_TICK,
   N_SIG_FIGS_OPTIONS,
+  SIZE_DECIMALS,
   type Coin,
   type ConnectionState,
   type NSigFigs,
   type RawLevel,
 } from "@/app/lib/hyperliquid";
-import { formatPrice, formatSize, formatSpreadPercent } from "@/app/lib/format";
+import {
+  formatPrice,
+  formatSize,
+  formatSpreadPercent,
+  formatTick,
+  tickFromSigFigs,
+} from "@/app/lib/format";
 import { useOrderBook } from "@/app/hooks/use-order-book";
 
 const ROWS_PER_SIDE = 12;
-
-type SizeUnit = "BTC" | "ETH" | "USD";
 
 type LevelRow = {
   px: string;
@@ -35,7 +41,6 @@ function buildRows(levels: RawLevel[], rows: number): LevelRow[] {
 export function OrderBook() {
   const [coin, setCoin] = useState<Coin>("BTC");
   const [nSigFigs, setNSigFigs] = useState<NSigFigs>(5);
-  const [sizeAsUsd, setSizeAsUsd] = useState(false);
 
   const { bids, asks, connectionState, lastMessageAt } = useOrderBook(
     coin,
@@ -55,29 +60,32 @@ export function OrderBook() {
   const bestBid = Number(bids[0]?.px ?? "0");
   const mid = bestAsk > 0 && bestBid > 0 ? (bestAsk + bestBid) / 2 : 0;
   const spread = bestAsk > 0 && bestBid > 0 ? bestAsk - bestBid : 0;
+  const tick = tickFromSigFigs(mid || bestAsk || bestBid, nSigFigs, NATIVE_TICK[coin]);
 
   // Reverse asks so the best ask sits immediately above the spread row.
   const askDisplay = useMemo(() => [...askRows].reverse(), [askRows]);
 
-  const baseUnit: SizeUnit = coin;
-  const sizeUnit: SizeUnit = sizeAsUsd ? "USD" : baseUnit;
+  const sizeDecimals = SIZE_DECIMALS[coin];
 
   return (
     <section
       aria-label={`${coin}-USD order book`}
-      className="w-full max-w-[400px] rounded-2xl border border-line bg-panel overflow-hidden font-sans"
+      className="w-full max-w-[360px] rounded-md border border-line bg-panel overflow-hidden font-sans"
     >
-      <Header
+      <ControlBar
         coin={coin}
         onCoinChange={setCoin}
+        nSigFigs={nSigFigs}
+        onNSigFigsChange={setNSigFigs}
+        tick={tick}
         connectionState={connectionState}
         lastMessageAt={lastMessageAt}
       />
 
-      <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wide text-muted">
+      <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 px-3 py-1 text-[11px] text-muted-2">
         <span>Price</span>
-        <span className="text-right">Size ({sizeUnit})</span>
-        <span className="text-right">Total ({sizeUnit})</span>
+        <span className="text-right">Size ({coin})</span>
+        <span className="text-right">Total ({coin})</span>
       </div>
 
       <div role="rowgroup" aria-label="Asks">
@@ -87,17 +95,12 @@ export function OrderBook() {
             side="ask"
             row={row}
             maxTotal={maxTotal}
-            mid={mid}
-            sizeAsUsd={sizeAsUsd}
+            sizeDecimals={sizeDecimals}
           />
         ))}
       </div>
 
-      <SpreadRow
-        spread={spread}
-        mid={mid}
-        sample={asks[0]?.sz ?? bids[0]?.sz ?? "—"}
-      />
+      <SpreadRow spread={spread} mid={mid} />
 
       <div role="rowgroup" aria-label="Bids">
         {bidRows.map((row) => (
@@ -106,61 +109,87 @@ export function OrderBook() {
             side="bid"
             row={row}
             maxTotal={maxTotal}
-            mid={mid}
-            sizeAsUsd={sizeAsUsd}
+            sizeDecimals={sizeDecimals}
           />
         ))}
       </div>
-
-      <BottomControls
-        nSigFigs={nSigFigs}
-        onNSigFigsChange={setNSigFigs}
-        sizeAsUsd={sizeAsUsd}
-        onSizeAsUsdChange={setSizeAsUsd}
-        baseUnit={baseUnit}
-      />
     </section>
   );
 }
 
-// ─── Header ────────────────────────────────────────────────────────────
+// ─── Control bar ───────────────────────────────────────────────────────
 
-function Header({
+function ControlBar({
   coin,
   onCoinChange,
+  nSigFigs,
+  onNSigFigsChange,
+  tick,
   connectionState,
   lastMessageAt,
 }: {
   coin: Coin;
   onCoinChange: (coin: Coin) => void;
+  nSigFigs: NSigFigs;
+  onNSigFigsChange: (value: NSigFigs) => void;
+  tick: number;
   connectionState: ConnectionState;
   lastMessageAt: number | null;
 }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-3 border-b border-line">
-      <CoinIcon coin={coin} />
-      <div className="flex-1 min-w-0">
+    <div className="flex items-center justify-between px-3 py-2 border-b border-line">
+      <PrecisionSelect value={nSigFigs} onChange={onNSigFigsChange} tick={tick} />
+      <div className="flex items-center gap-2">
+        <StatusDot state={connectionState} lastMessageAt={lastMessageAt} />
         <CoinSelect value={coin} onChange={onCoinChange} />
-        <div className="text-[10px] text-muted leading-tight mt-0.5">Perpetual</div>
       </div>
-      <ConnectionPill state={connectionState} lastMessageAt={lastMessageAt} />
     </div>
   );
 }
 
-function CoinIcon({ coin }: { coin: Coin }) {
-  const palette =
-    coin === "BTC"
-      ? "bg-[radial-gradient(circle_at_30%_25%,#fbbf24,#f97316)]"
-      : "bg-[radial-gradient(circle_at_30%_25%,#a5b4fc,#6366f1)]";
+function PrecisionSelect({
+  value,
+  onChange,
+  tick,
+}: {
+  value: NSigFigs;
+  onChange: (value: NSigFigs) => void;
+  tick: number;
+}) {
   return (
-    <span
-      aria-hidden="true"
-      className={`grid place-items-center w-8 h-8 rounded-full text-[14px] font-bold text-white shadow-inner ${palette}`}
-    >
-      {coin === "BTC" ? "₿" : "Ξ"}
-    </span>
+    <label className="relative inline-flex items-center text-[12px] text-text">
+      <span className="sr-only">Price precision</span>
+      <select
+        value={value ?? "full"}
+        onChange={(e) => {
+          const v = e.target.value;
+          onChange(v === "full" ? null : (Number(v) as NSigFigs));
+        }}
+        className="appearance-none bg-transparent pr-4 cursor-pointer focus:outline-none font-mono"
+      >
+        {N_SIG_FIGS_OPTIONS.map((option) => (
+          <option key={option ?? "full"} value={option ?? "full"} className="bg-panel font-mono">
+            {option === null ? "Full" : labelForOption(option, tick, value)}
+          </option>
+        ))}
+      </select>
+      <Chevron />
+    </label>
   );
+}
+
+/**
+ * The dropdown shows the tick value for the *currently selected* option live,
+ * but other options still need a stable label. We compute each option's tick
+ * relative to the currently visible price level so the trailing options remain
+ * meaningful even when scrolled.
+ */
+function labelForOption(option: NSigFigs, currentTick: number, currentValue: NSigFigs): string {
+  if (option === currentValue) return formatTick(currentTick);
+  if (option === null || currentValue === null) return option === null ? "Full" : `${option}`;
+  // Each step of nSigFigs scales the tick by 10×.
+  const scale = Math.pow(10, currentValue - option);
+  return formatTick(currentTick * scale);
 }
 
 function CoinSelect({
@@ -171,27 +200,25 @@ function CoinSelect({
   onChange: (coin: Coin) => void;
 }) {
   return (
-    <label className="block">
+    <label className="relative inline-flex items-center text-[12px] text-text">
       <span className="sr-only">Symbol</span>
-      <div className="relative inline-flex items-center">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value as Coin)}
-          className="appearance-none bg-transparent text-sm font-bold text-text pr-4 cursor-pointer focus:outline-none"
-        >
-          {COINS.map((c) => (
-            <option key={c} value={c} className="bg-panel">
-              {c}-USD
-            </option>
-          ))}
-        </select>
-        <Chevron />
-      </div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as Coin)}
+        className="appearance-none bg-transparent pr-4 cursor-pointer focus:outline-none font-medium"
+      >
+        {COINS.map((c) => (
+          <option key={c} value={c} className="bg-panel">
+            {c}
+          </option>
+        ))}
+      </select>
+      <Chevron />
     </label>
   );
 }
 
-function ConnectionPill({
+function StatusDot({
   state,
   lastMessageAt,
 }: {
@@ -202,28 +229,26 @@ function ConnectionPill({
   const display: ConnectionState | "stale" =
     state === "live" && isStale ? "stale" : state;
 
-  const styles: Record<typeof display, string> = {
-    live: "bg-emerald-400/10 text-emerald-300 border-emerald-400/30",
-    connecting: "bg-amber-400/10 text-amber-300 border-amber-400/30",
-    stale: "bg-amber-400/10 text-amber-300 border-amber-400/30",
-    error: "bg-rose-400/10 text-rose-300 border-rose-400/30",
+  const color: Record<typeof display, string> = {
+    live: "bg-bid",
+    connecting: "bg-amber-400",
+    stale: "bg-amber-400",
+    error: "bg-ask",
   };
-  const label =
-    display === "live"
-      ? "Live"
-      : display === "connecting"
-        ? "Connecting"
-        : display === "stale"
-          ? "Stale"
-          : "Error";
+  const label: Record<typeof display, string> = {
+    live: "Live",
+    connecting: "Connecting",
+    stale: "Stale",
+    error: "Disconnected",
+  };
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 h-6 px-2 rounded-full border text-[10px] font-bold uppercase tracking-wide ${styles[display]}`}
-    >
-      {display === "live" ? <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" /> : null}
-      {label}
-    </span>
+      role="status"
+      aria-label={`Connection: ${label[display]}`}
+      title={label[display]}
+      className={`w-1.5 h-1.5 rounded-full ${color[display]} ${display === "live" ? "animate-pulse" : ""}`}
+    />
   );
 }
 
@@ -233,14 +258,12 @@ function BookRow({
   side,
   row,
   maxTotal,
-  mid,
-  sizeAsUsd,
+  sizeDecimals,
 }: {
   side: "ask" | "bid";
   row: LevelRow;
   maxTotal: number;
-  mid: number;
-  sizeAsUsd: boolean;
+  sizeDecimals: number;
 }) {
   const ratio = Math.max(0.04, row.total / maxTotal);
   const fill = side === "ask" ? "bg-ask-fill" : "bg-bid-fill";
@@ -256,16 +279,13 @@ function BookRow({
     if (!el) return;
     if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)
       return;
+    const flashColor =
+      side === "ask" ? "rgba(237, 88, 116, 0.35)" : "rgba(77, 214, 184, 0.35)";
     el.animate(
-      [{ backgroundColor: side === "ask" ? "rgba(239,68,68,0.35)" : "rgba(34,197,94,0.35)" }, { backgroundColor: "rgba(0,0,0,0)" }],
+      [{ backgroundColor: flashColor }, { backgroundColor: "rgba(0,0,0,0)" }],
       { duration: 420, easing: "ease-out" },
     );
   }, [row.sz, side]);
-
-  const sizeNum = Number(row.sz);
-  const totalNum = row.total;
-  const sizeDisplay = sizeAsUsd ? formatPrice(sizeNum * mid) : formatSize(sizeNum);
-  const totalDisplay = sizeAsUsd ? formatPrice(totalNum * mid) : formatSize(totalNum);
 
   return (
     <div
@@ -279,110 +299,27 @@ function BookRow({
         style={{ width: `${ratio * 100}%` }}
       />
       <span className={`relative ${priceColor} font-mono`}>{formatPrice(row.px)}</span>
-      <span className="relative text-right text-text/80 font-mono">{sizeDisplay}</span>
-      <span className="relative text-right text-text/80 font-mono">{totalDisplay}</span>
+      <span className="relative text-right text-text font-mono">
+        {formatSize(row.sz, sizeDecimals)}
+      </span>
+      <span className="relative text-right text-text font-mono">
+        {formatSize(row.total, sizeDecimals)}
+      </span>
     </div>
   );
 }
 
-function SpreadRow({
-  spread,
-  mid,
-  sample,
-}: {
-  spread: number;
-  mid: number;
-  sample: string;
-}) {
+function SpreadRow({ spread, mid }: { spread: number; mid: number }) {
   const pct = formatSpreadPercent(spread, mid);
   return (
     <div
       role="row"
       aria-label="Spread"
-      className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[26px] text-[11px] text-muted border-y border-line bg-panel-2/40"
+      className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[24px] text-[11px] text-muted"
     >
-      <span className="uppercase tracking-wide">Spread</span>
-      <span className="text-right font-mono">{spread > 0 ? formatPrice(spread) : formatSize(sample)}</span>
+      <span className="text-center">Spread</span>
+      <span className="text-right font-mono">{spread > 0 ? formatPrice(spread) : "—"}</span>
       <span className="text-right font-mono">{pct}</span>
-    </div>
-  );
-}
-
-// ─── Bottom controls ───────────────────────────────────────────────────
-
-function BottomControls({
-  nSigFigs,
-  onNSigFigsChange,
-  sizeAsUsd,
-  onSizeAsUsdChange,
-  baseUnit,
-}: {
-  nSigFigs: NSigFigs;
-  onNSigFigsChange: (value: NSigFigs) => void;
-  sizeAsUsd: boolean;
-  onSizeAsUsdChange: (value: boolean) => void;
-  baseUnit: Coin;
-}) {
-  return (
-    <div className="flex items-center justify-between px-3 py-2 border-t border-line">
-      <label className="inline-flex items-center gap-1 text-[11px] text-muted">
-        <span className="sr-only">Significant figures</span>
-        <div className="relative inline-flex items-center">
-          <select
-            value={nSigFigs ?? "full"}
-            onChange={(e) => {
-              const v = e.target.value;
-              onNSigFigsChange(v === "full" ? null : (Number(v) as NSigFigs));
-            }}
-            className="appearance-none bg-transparent pr-4 text-text cursor-pointer focus:outline-none"
-            aria-label="Price precision"
-          >
-            {N_SIG_FIGS_OPTIONS.map((option) => (
-              <option key={option ?? "full"} value={option ?? "full"} className="bg-panel">
-                {option === null ? "Full" : option}
-              </option>
-            ))}
-          </select>
-          <Chevron />
-        </div>
-      </label>
-      <SizeUnitToggle
-        sizeAsUsd={sizeAsUsd}
-        onChange={onSizeAsUsdChange}
-        baseUnit={baseUnit}
-      />
-    </div>
-  );
-}
-
-function SizeUnitToggle({
-  sizeAsUsd,
-  onChange,
-  baseUnit,
-}: {
-  sizeAsUsd: boolean;
-  onChange: (value: boolean) => void;
-  baseUnit: Coin;
-}) {
-  const segment = "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide cursor-pointer";
-  return (
-    <div className="inline-flex items-center text-muted">
-      <button
-        type="button"
-        aria-pressed={sizeAsUsd}
-        className={`${segment} ${sizeAsUsd ? "bg-panel-2 text-text" : "hover:text-text/80"}`}
-        onClick={() => onChange(true)}
-      >
-        USD
-      </button>
-      <button
-        type="button"
-        aria-pressed={!sizeAsUsd}
-        className={`${segment} ${!sizeAsUsd ? "bg-panel-2 text-text" : "hover:text-text/80"}`}
-        onClick={() => onChange(false)}
-      >
-        {baseUnit}
-      </button>
     </div>
   );
 }
