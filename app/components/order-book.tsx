@@ -70,7 +70,7 @@ export function OrderBook() {
   return (
     <section
       aria-label={`${coin}-USD order book`}
-      className="w-full max-w-[360px] rounded-md border border-line bg-panel overflow-hidden font-sans"
+      className="w-full max-w-[400px] rounded-md border border-line bg-panel overflow-hidden font-sans"
     >
       <ControlBar
         coin={coin}
@@ -85,13 +85,13 @@ export function OrderBook() {
       {connectionState !== "live" && (
         <div
           role="status"
-          className="px-3 py-1 text-[10px] text-muted border-b border-line"
+          className="px-3 py-1 text-[11px] text-muted border-b border-line"
         >
           {connectionState === "error" ? "Reconnecting…" : "Connecting…"}
         </div>
       )}
 
-      <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 px-3 py-1 text-[11px] text-muted-2">
+      <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 px-3 py-1.5 text-[12px] text-muted-2">
         <span>Price</span>
         <span className="text-right">Size ({coin})</span>
         <span className="text-right">Total ({coin})</span>
@@ -176,7 +176,7 @@ function PrecisionSelect({
   tick: number;
 }) {
   return (
-    <label className="relative inline-flex items-center text-[12px] text-text">
+    <label className="relative inline-flex items-center text-[13px] text-text">
       <span className="sr-only">Price precision</span>
       <select
         value={value ?? "full"}
@@ -219,7 +219,7 @@ function CoinSelect({
   onChange: (coin: Coin) => void;
 }) {
   return (
-    <label className="relative inline-flex items-center text-[12px] text-text">
+    <label className="relative inline-flex items-center text-[13px] text-text">
       <span className="sr-only">Symbol</span>
       <select
         value={value}
@@ -313,7 +313,7 @@ function BookRow({
     <div
       ref={cellRef}
       role="row"
-      className="relative grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[22px] text-[12px] hover:bg-white/[0.03] transition-colors"
+      className="relative grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[26px] text-[13px] hover:bg-white/[0.03] transition-colors"
     >
       <span
         aria-hidden="true"
@@ -335,7 +335,7 @@ function SkeletonRow() {
   return (
     <div
       aria-hidden="true"
-      className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[22px]"
+      className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[26px]"
     >
       <span className="h-[8px] w-12 rounded bg-line-strong/60 animate-pulse" />
       <span className="h-[8px] w-10 rounded bg-line-strong/60 animate-pulse justify-self-end" />
@@ -351,9 +351,9 @@ function SpreadRow({ spread, mid }: { spread: number; mid: number }) {
     <div
       role="row"
       aria-label="Spread"
-      className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[28px] text-[11px] text-muted border-y border-line"
+      className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[32px] text-[12px] text-muted border-y border-line"
     >
-      <span className="font-mono text-text text-[13px] font-medium">
+      <span className="font-mono text-text text-[15px] font-medium">
         {hasData ? formatPrice(mid) : "—"}
       </span>
       <span className="text-right font-mono">
