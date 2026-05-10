@@ -60,7 +60,7 @@ export function OrderBook() {
   const bestBid = Number(bids[0]?.px ?? "0");
   const mid = bestAsk > 0 && bestBid > 0 ? (bestAsk + bestBid) / 2 : 0;
   const spread = bestAsk > 0 && bestBid > 0 ? bestAsk - bestBid : 0;
-  const tick = tickFromSigFigs(mid || bestAsk || bestBid, nSigFigs, NATIVE_TICK[coin]);
+  const referencePrice = mid || bestAsk || bestBid;
 
   // Reverse asks so the best ask sits immediately above the spread row.
   const askDisplay = useMemo(() => [...askRows].reverse(), [askRows]);
@@ -77,7 +77,8 @@ export function OrderBook() {
         onCoinChange={setCoin}
         nSigFigs={nSigFigs}
         onNSigFigsChange={setNSigFigs}
-        tick={tick}
+        referencePrice={referencePrice}
+        nativeTick={NATIVE_TICK[coin]}
         connectionState={connectionState}
         lastMessageAt={lastMessageAt}
       />
@@ -143,7 +144,8 @@ function ControlBar({
   onCoinChange,
   nSigFigs,
   onNSigFigsChange,
-  tick,
+  referencePrice,
+  nativeTick,
   connectionState,
   lastMessageAt,
 }: {
@@ -151,13 +153,19 @@ function ControlBar({
   onCoinChange: (coin: Coin) => void;
   nSigFigs: NSigFigs;
   onNSigFigsChange: (value: NSigFigs) => void;
-  tick: number;
+  referencePrice: number;
+  nativeTick: number;
   connectionState: ConnectionState;
   lastMessageAt: number | null;
 }) {
   return (
     <div className="flex items-center justify-between px-3 py-2 border-b border-line">
-      <PrecisionSelect value={nSigFigs} onChange={onNSigFigsChange} tick={tick} />
+      <PrecisionSelect
+        value={nSigFigs}
+        onChange={onNSigFigsChange}
+        referencePrice={referencePrice}
+        nativeTick={nativeTick}
+      />
       <div className="flex items-center gap-2">
         <StatusDot state={connectionState} lastMessageAt={lastMessageAt} />
         <CoinSelect value={coin} onChange={onCoinChange} />
@@ -169,11 +177,13 @@ function ControlBar({
 function PrecisionSelect({
   value,
   onChange,
-  tick,
+  referencePrice,
+  nativeTick,
 }: {
   value: NSigFigs;
   onChange: (value: NSigFigs) => void;
-  tick: number;
+  referencePrice: number;
+  nativeTick: number;
 }) {
   return (
     <label className="relative inline-flex items-center text-[13px] text-text">
@@ -186,29 +196,18 @@ function PrecisionSelect({
         }}
         className="appearance-none bg-transparent pr-4 cursor-pointer focus:outline-none font-mono"
       >
-        {N_SIG_FIGS_OPTIONS.map((option) => (
-          <option key={option ?? "full"} value={option ?? "full"} className="bg-panel font-mono">
-            {option === null ? "Full" : labelForOption(option, tick, value)}
-          </option>
-        ))}
+        {N_SIG_FIGS_OPTIONS.map((option) => {
+          const optionTick = tickFromSigFigs(referencePrice, option, nativeTick);
+          return (
+            <option key={option ?? "full"} value={option ?? "full"} className="bg-panel font-mono">
+              {option === null ? "Full" : formatTick(optionTick)}
+            </option>
+          );
+        })}
       </select>
       <Chevron />
     </label>
   );
-}
-
-/**
- * The dropdown shows the tick value for the *currently selected* option live,
- * but other options still need a stable label. We compute each option's tick
- * relative to the currently visible price level so the trailing options remain
- * meaningful even when scrolled.
- */
-function labelForOption(option: NSigFigs, currentTick: number, currentValue: NSigFigs): string {
-  if (option === currentValue) return formatTick(currentTick);
-  if (option === null || currentValue === null) return option === null ? "Full" : `${option}`;
-  // Each step of nSigFigs scales the tick by 10×.
-  const scale = Math.pow(10, currentValue - option);
-  return formatTick(currentTick * scale);
 }
 
 function CoinSelect({
