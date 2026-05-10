@@ -82,6 +82,15 @@ export function OrderBook() {
         lastMessageAt={lastMessageAt}
       />
 
+      {connectionState !== "live" && (
+        <div
+          role="status"
+          className="px-3 py-1 text-[10px] text-muted border-b border-line"
+        >
+          {connectionState === "error" ? "Reconnecting…" : "Connecting…"}
+        </div>
+      )}
+
       <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 px-3 py-1 text-[11px] text-muted-2">
         <span>Price</span>
         <span className="text-right">Size ({coin})</span>
@@ -89,29 +98,39 @@ export function OrderBook() {
       </div>
 
       <div role="rowgroup" aria-label="Asks">
-        {askDisplay.map((row) => (
-          <BookRow
-            key={`ask-${row.px}`}
-            side="ask"
-            row={row}
-            maxTotal={maxTotal}
-            sizeDecimals={sizeDecimals}
-          />
-        ))}
+        {askDisplay.length === 0
+          ? Array.from({ length: ROWS_PER_SIDE }, (_, i) => (
+              <SkeletonRow key={`ask-skel-${i}`} />
+            ))
+          : askDisplay.map((row, i) => (
+              <BookRow
+                key={`ask-${row.px}`}
+                side="ask"
+                row={row}
+                maxTotal={maxTotal}
+                sizeDecimals={sizeDecimals}
+                emphasized={i === askDisplay.length - 1}
+              />
+            ))}
       </div>
 
       <SpreadRow spread={spread} mid={mid} />
 
       <div role="rowgroup" aria-label="Bids">
-        {bidRows.map((row) => (
-          <BookRow
-            key={`bid-${row.px}`}
-            side="bid"
-            row={row}
-            maxTotal={maxTotal}
-            sizeDecimals={sizeDecimals}
-          />
-        ))}
+        {bidRows.length === 0
+          ? Array.from({ length: ROWS_PER_SIDE }, (_, i) => (
+              <SkeletonRow key={`bid-skel-${i}`} />
+            ))
+          : bidRows.map((row, i) => (
+              <BookRow
+                key={`bid-${row.px}`}
+                side="bid"
+                row={row}
+                maxTotal={maxTotal}
+                sizeDecimals={sizeDecimals}
+                emphasized={i === 0}
+              />
+            ))}
       </div>
     </section>
   );
@@ -259,15 +278,18 @@ function BookRow({
   row,
   maxTotal,
   sizeDecimals,
+  emphasized = false,
 }: {
   side: "ask" | "bid";
   row: LevelRow;
   maxTotal: number;
   sizeDecimals: number;
+  emphasized?: boolean;
 }) {
   const ratio = Math.max(0.04, row.total / maxTotal);
   const fill = side === "ask" ? "bg-ask-fill" : "bg-bid-fill";
   const priceColor = side === "ask" ? "text-ask" : "text-bid";
+  const weight = emphasized ? "font-medium" : "";
 
   // Flash when the size at this level changes.
   const cellRef = useRef<HTMLDivElement>(null);
@@ -291,34 +313,52 @@ function BookRow({
     <div
       ref={cellRef}
       role="row"
-      className="relative grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[22px] text-[12px]"
+      className="relative grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[22px] text-[12px] hover:bg-white/[0.03] transition-colors"
     >
       <span
         aria-hidden="true"
         className={`absolute inset-y-0 right-0 ${fill}`}
         style={{ width: `${ratio * 100}%` }}
       />
-      <span className={`relative ${priceColor} font-mono`}>{formatPrice(row.px)}</span>
-      <span className="relative text-right text-text font-mono">
+      <span className={`relative ${priceColor} ${weight} font-mono`}>{formatPrice(row.px)}</span>
+      <span className={`relative text-right text-text ${weight} font-mono`}>
         {formatSize(row.sz, sizeDecimals)}
       </span>
-      <span className="relative text-right text-text font-mono">
+      <span className={`relative text-right text-text ${weight} font-mono`}>
         {formatSize(row.total, sizeDecimals)}
       </span>
     </div>
   );
 }
 
+function SkeletonRow() {
+  return (
+    <div
+      aria-hidden="true"
+      className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[22px]"
+    >
+      <span className="h-[8px] w-12 rounded bg-line-strong/60 animate-pulse" />
+      <span className="h-[8px] w-10 rounded bg-line-strong/60 animate-pulse justify-self-end" />
+      <span className="h-[8px] w-10 rounded bg-line-strong/60 animate-pulse justify-self-end" />
+    </div>
+  );
+}
+
 function SpreadRow({ spread, mid }: { spread: number; mid: number }) {
   const pct = formatSpreadPercent(spread, mid);
+  const hasData = mid > 0;
   return (
     <div
       role="row"
       aria-label="Spread"
-      className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[24px] text-[11px] text-muted"
+      className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[28px] text-[11px] text-muted border-y border-line"
     >
-      <span className="text-center">Spread</span>
-      <span className="text-right font-mono">{spread > 0 ? formatPrice(spread) : "—"}</span>
+      <span className="font-mono text-text text-[13px] font-medium">
+        {hasData ? formatPrice(mid) : "—"}
+      </span>
+      <span className="text-right font-mono">
+        {hasData && spread > 0 ? formatPrice(spread) : "—"}
+      </span>
       <span className="text-right font-mono">{pct}</span>
     </div>
   );
