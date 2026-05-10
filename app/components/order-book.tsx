@@ -97,7 +97,7 @@ export function OrderBook() {
         <span className="text-right">Total ({coin})</span>
       </div>
 
-      <div role="rowgroup" aria-label="Asks" className="space-y-px">
+      <div role="rowgroup" aria-label="Asks" className="space-y-0.5">
         {askDisplay.length === 0
           ? Array.from({ length: ROWS_PER_SIDE }, (_, i) => (
               <SkeletonRow key={`ask-skel-${i}`} />
@@ -116,7 +116,7 @@ export function OrderBook() {
 
       <SpreadRow spread={spread} mid={mid} />
 
-      <div role="rowgroup" aria-label="Bids" className="space-y-px">
+      <div role="rowgroup" aria-label="Bids" className="space-y-0.5">
         {bidRows.length === 0
           ? Array.from({ length: ROWS_PER_SIDE }, (_, i) => (
               <SkeletonRow key={`bid-skel-${i}`} />
@@ -346,18 +346,15 @@ function SkeletonRow() {
 
 function SpreadRow({ spread, mid }: { spread: number; mid: number }) {
   const pct = formatSpreadPercent(spread, mid);
-  const hasData = mid > 0;
   return (
     <div
       role="row"
       aria-label="Spread"
-      className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[32px] text-[12px] text-muted border-y border-line"
+      className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[28px] text-[12px] text-muted border-y border-line"
     >
-      <span className="font-mono text-text text-[15px] font-medium">
-        {hasData ? formatPrice(mid) : "—"}
-      </span>
+      <span className="text-center">Spread</span>
       <span className="text-right font-mono">
-        {hasData && spread > 0 ? formatPrice(spread) : "—"}
+        {spread > 0 ? formatPrice(spread) : "—"}
       </span>
       <span className="text-right font-mono">{pct}</span>
     </div>
