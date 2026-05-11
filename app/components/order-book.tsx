@@ -65,8 +65,23 @@ export function OrderBook() {
   const spread = bestAsk > 0 && bestBid > 0 ? bestAsk - bestBid : 0;
   const referencePrice = mid || bestAsk || bestBid;
 
+  // Keep a stable price across the empty-book gap during re-subscription, so
+  // the precision dropdown doesn't flash to the first option while the new
+  // feed warms up. Reset whenever the coin changes.
+  const stablePriceRef = useRef<{ coin: Coin; price: number }>({
+    coin,
+    price: 0,
+  });
+  if (stablePriceRef.current.coin !== coin) {
+    stablePriceRef.current = { coin, price: 0 };
+  }
+  if (referencePrice > 0) {
+    stablePriceRef.current.price = referencePrice;
+  }
+  const stablePrice = stablePriceRef.current.price || referencePrice;
+
   const handleTickChange = (tick: number) => {
-    const params = tickToParams(tick, referencePrice);
+    const params = tickToParams(tick, stablePrice);
     if (!params) return;
     setNSigFigs(params.nSigFigs);
     setMantissa(params.mantissa);
@@ -88,7 +103,7 @@ export function OrderBook() {
         nSigFigs={nSigFigs}
         mantissa={mantissa}
         onTickChange={handleTickChange}
-        referencePrice={referencePrice}
+        referencePrice={stablePrice}
         connectionState={connectionState}
         lastMessageAt={lastMessageAt}
       />
