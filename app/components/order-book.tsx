@@ -189,12 +189,16 @@ function SpreadRow({
   bidShare: number;
 }) {
   const pct = formatSpreadPercent(spread, mid);
+  // Each side ramps brightness around 1.0: up toward PEAK when it's the
+  // dominant side, down toward DARK when it's the smaller side.
   const BASE = 1;
   const PEAK = 1.4;
-  const bidBrightness =
-    BASE + (PEAK - BASE) * Math.max(0, (bidShare - 0.5) * 2);
-  const askBrightness =
-    BASE + (PEAK - BASE) * Math.max(0, (0.5 - bidShare) * 2);
+  const DARK = 0.7;
+  const bidAmp = (bidShare - 0.5) * 2; // −1 (ask dominates) … +1 (bid dominates)
+  const sideBrightness = (amp: number) =>
+    amp >= 0 ? BASE + amp * (PEAK - BASE) : BASE + amp * (BASE - DARK);
+  const bidBrightness = sideBrightness(bidAmp);
+  const askBrightness = sideBrightness(-bidAmp);
   return (
     <div
       role="row"
