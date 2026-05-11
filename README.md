@@ -72,4 +72,6 @@ To add a coin: extend `Coin`, `COINS`, `TICK_OPTIONS_BY_COIN`, and `SIZE_DECIMAL
 
 ## Testing
 
-vitest + jsdom. `vitest.setup.ts` stubs the Web Animations API and `matchMedia` (jsdom doesn't ship them) and wires `@testing-library` auto-cleanup. Coverage focuses on the WS hook, the tick/sig-figs math, and `BookRow`'s hover-freeze pattern.
+vitest + jsdom. `vitest.setup.ts` stubs the Web Animations API and `matchMedia` (jsdom doesn't ship them) and wires `@testing-library` auto-cleanup.
+
+47 tests across 6 files: `format` (24), `use-order-book` and `use-inside-tick` (10), `imbalance` and `ticks` math (10), and `BookRow`'s hover-freeze (3).
