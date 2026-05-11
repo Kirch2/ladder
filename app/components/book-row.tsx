@@ -39,7 +39,7 @@ export const BookRow = memo(function BookRow({
   const fill = side === "ask" ? "bg-ask-fill" : "bg-bid-fill";
   const flashBar = side === "ask" ? "bg-ask" : "bg-bid";
   const priceColor = side === "ask" ? "text-ask" : "text-bid";
-  const weight = emphasized ? "font-medium" : "";
+  const weight = emphasized ? "font-bold" : "font-semibold";
 
   const [isHovering, setIsHovering] = useState(false);
   const frozenRef = useRef<{ sz: string; total: number; ratio: number } | null>(

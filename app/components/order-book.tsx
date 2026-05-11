@@ -174,10 +174,10 @@ function SpreadRow({
       className="relative grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[30px] text-[13px] text-text border-t border-line"
     >
       <span className="text-center">Spread</span>
-      <span className="text-right font-mono">
+      <span className="text-right font-mono font-semibold">
         {spread > 0 ? formatPrice(spread) : "—"}
       </span>
-      <span className="text-right font-mono">{pct}</span>
+      <span className="text-right font-mono font-semibold">{pct}</span>
       <span
         aria-hidden="true"
         className="absolute inset-x-0 bottom-0 h-1.5 flex opacity-90"
