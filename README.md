@@ -2,7 +2,7 @@
 
 Live L2 order book widget for Hyperliquid. Streams `l2Book` over WebSocket and renders 14 levels per side for BTC and ETH with adjustable price precision.
 
-Repo: [Kirch2/ladder](https://github.com/Kirch2/ladder)
+**Live:** [orderbook-topaz.vercel.app](https://orderbook-topaz.vercel.app) · **Repo:** [Kirch2/ladder](https://github.com/Kirch2/ladder)
 
 ## Stack
 
