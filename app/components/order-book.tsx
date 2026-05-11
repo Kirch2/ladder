@@ -137,7 +137,7 @@ export function OrderBook() {
         </div>
       )}
 
-      <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 px-3 py-1.5 text-[12px] text-muted-2">
+      <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 px-3 py-1.5 text-[13px] text-text">
         <span>Price</span>
         <span className="text-right">Size ({coin})</span>
         <span className="text-right">Total ({coin})</span>
@@ -251,12 +251,12 @@ function PrecisionSelect({
     : null;
 
   return (
-    <label className="relative inline-flex items-center text-[14px] text-text">
+    <label className="relative inline-flex items-center text-[15px] text-text">
       <span className="sr-only">Price precision</span>
       <select
         value={currentTick ?? ""}
         onChange={(e) => onTickChange(Number(e.target.value))}
-        className="appearance-none bg-transparent pr-5 cursor-pointer focus:outline-none font-mono"
+        className="appearance-none bg-transparent pr-6 cursor-pointer focus:outline-none font-mono"
       >
         {availableTicks.map((tick) => (
           <option key={tick} value={tick} className="bg-panel font-mono">
@@ -277,15 +277,15 @@ function CoinSelect({
   onChange: (coin: Coin) => void;
 }) {
   return (
-    <label className="relative inline-flex items-center gap-2 text-[14px] text-text">
-      <span className="text-[11px] uppercase tracking-wide text-muted-2">
+    <label className="relative inline-flex items-center gap-2 text-[15px] text-text">
+      <span className="text-[12px] uppercase tracking-wide text-text">
         Symbol
       </span>
       <CoinIcon coin={value} />
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as Coin)}
-        className="appearance-none bg-transparent pr-5 cursor-pointer focus:outline-none font-medium"
+        className="appearance-none bg-transparent pr-6 cursor-pointer focus:outline-none font-medium"
       >
         {COINS.map((c) => (
           <option key={c} value={c} className="bg-panel">
@@ -346,7 +346,7 @@ function StatusDot({
       role="status"
       aria-label={`Connection: ${label[display]}`}
       title={label[display]}
-      className={`w-1.5 h-1.5 rounded-full ${color[display]} ${display === "live" ? "animate-pulse" : ""}`}
+      className={`w-2 h-2 rounded-full ${color[display]} ${display === "live" ? "animate-pulse" : ""}`}
     />
   );
 }
@@ -502,7 +502,7 @@ function Chevron() {
     <ChevronDown
       aria-hidden="true"
       strokeWidth={1.75}
-      className="absolute right-0 w-3 h-3 text-muted pointer-events-none"
+      className="absolute right-0 w-4 h-4 text-text pointer-events-none"
     />
   );
 }
