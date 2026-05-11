@@ -1,16 +1,17 @@
 export const HYPERLIQUID_WS_URL = "wss://api.hyperliquid.xyz/ws";
 
 export type Coin = "BTC" | "ETH";
-export type NSigFigs = 2 | 3 | 4 | 5 | null;
+export type NSigFigs = 2 | 3 | 4 | 5;
+export type Mantissa = 1 | 2 | 5;
 
 export const COINS: Coin[] = ["BTC", "ETH"];
-export const N_SIG_FIGS_OPTIONS: NSigFigs[] = [null, 5, 4, 3, 2];
+
+/** Tick values shown in the precision dropdown. Filtered per-coin by what's
+ * achievable at the current reference price. */
+export const TICK_OPTIONS = [1, 2, 5, 10, 100, 1000] as const;
 
 /** Display precision for the size column, per asset, matching hyperliquid.xyz. */
 export const SIZE_DECIMALS: Record<Coin, number> = { BTC: 5, ETH: 4 };
-
-/** Native tick used when nSigFigs is null ("Full" precision). */
-export const NATIVE_TICK: Record<Coin, number> = { BTC: 1, ETH: 0.1 };
 
 export type RawLevel = {
   /** Price as a string. Hyperliquid returns numbers as strings to preserve precision. */
@@ -25,6 +26,9 @@ export type L2BookSubscription = {
   type: "l2Book";
   coin: Coin;
   nSigFigs: NSigFigs;
+  /** Optional mantissa multiplier (default 1). Combined with nSigFigs to reach
+   * non-power-of-10 ticks like 2, 5, 20, 50. Only sent when not 1. */
+  mantissa?: Mantissa;
 };
 
 export type L2BookMessage = {

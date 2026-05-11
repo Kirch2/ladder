@@ -38,22 +38,42 @@ export function formatSize(value: string | number, decimals = 5): string {
   });
 }
 
+import type { Mantissa, NSigFigs } from "./hyperliquid";
+
 /**
- * Compute the price tick implied by a sigfig precision and current price level.
- * Hyperliquid's precision dropdown displays the tick (`0.001`, `0.01`, `10`),
- * not the sigfig count, so we surface the same.
- *
- * `null` means full native precision; pass the asset's native tick as fallback.
+ * Reverse-derive (nSigFigs, mantissa) from a desired tick at a reference price.
+ * Returns null if the tick isn't achievable within the API's allowed
+ * `nSigFigs ∈ {2,3,4,5}` and `mantissa ∈ {1,2,5}` ranges.
  */
-export function tickFromSigFigs(
-  price: number,
-  nSigFigs: number | null,
-  nativeTick: number,
+export function tickToParams(
+  tick: number,
+  refPrice: number,
+): { nSigFigs: NSigFigs; mantissa: Mantissa } | null {
+  if (!Number.isFinite(refPrice) || refPrice <= 0) return null;
+  const baseExp = Math.floor(Math.log10(refPrice));
+  for (const nSigFigs of [5, 4, 3, 2] as const) {
+    const baseTick = Math.pow(10, baseExp - nSigFigs + 1);
+    for (const mantissa of [1, 2, 5] as const) {
+      const candidate = mantissa * baseTick;
+      if (Math.abs(candidate - tick) <= tick * 1e-9) {
+        return { nSigFigs, mantissa };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Forward: compute the tick produced by a given (nSigFigs, mantissa) at a price.
+ */
+export function tickFromParams(
+  refPrice: number,
+  nSigFigs: NSigFigs,
+  mantissa: Mantissa,
 ): number {
-  if (nSigFigs === null) return nativeTick;
-  if (!Number.isFinite(price) || price <= 0) return nativeTick;
-  const exp = Math.floor(Math.log10(price)) - nSigFigs + 1;
-  return Math.pow(10, exp);
+  if (!Number.isFinite(refPrice) || refPrice <= 0) return mantissa;
+  const baseExp = Math.floor(Math.log10(refPrice));
+  return mantissa * Math.pow(10, baseExp - nSigFigs + 1);
 }
 
 export function formatTick(tick: number): string {

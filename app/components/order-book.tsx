@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   COINS,
-  NATIVE_TICK,
-  N_SIG_FIGS_OPTIONS,
   SIZE_DECIMALS,
+  TICK_OPTIONS,
   type Coin,
   type ConnectionState,
+  type Mantissa,
   type NSigFigs,
   type RawLevel,
 } from "@/app/lib/hyperliquid";
@@ -16,7 +16,8 @@ import {
   formatSize,
   formatSpreadPercent,
   formatTick,
-  tickFromSigFigs,
+  tickFromParams,
+  tickToParams,
 } from "@/app/lib/format";
 import { useOrderBook } from "@/app/hooks/use-order-book";
 
@@ -41,10 +42,12 @@ function buildRows(levels: RawLevel[], rows: number): LevelRow[] {
 export function OrderBook() {
   const [coin, setCoin] = useState<Coin>("BTC");
   const [nSigFigs, setNSigFigs] = useState<NSigFigs>(5);
+  const [mantissa, setMantissa] = useState<Mantissa>(1);
 
   const { bids, asks, connectionState, lastMessageAt } = useOrderBook(
     coin,
     nSigFigs,
+    mantissa,
   );
 
   const askRows = useMemo(() => buildRows(asks, ROWS_PER_SIDE), [asks]);
@@ -62,6 +65,13 @@ export function OrderBook() {
   const spread = bestAsk > 0 && bestBid > 0 ? bestAsk - bestBid : 0;
   const referencePrice = mid || bestAsk || bestBid;
 
+  const handleTickChange = (tick: number) => {
+    const params = tickToParams(tick, referencePrice);
+    if (!params) return;
+    setNSigFigs(params.nSigFigs);
+    setMantissa(params.mantissa);
+  };
+
   // Reverse asks so the best ask sits immediately above the spread row.
   const askDisplay = useMemo(() => [...askRows].reverse(), [askRows]);
 
@@ -76,9 +86,9 @@ export function OrderBook() {
         coin={coin}
         onCoinChange={setCoin}
         nSigFigs={nSigFigs}
-        onNSigFigsChange={setNSigFigs}
+        mantissa={mantissa}
+        onTickChange={handleTickChange}
         referencePrice={referencePrice}
-        nativeTick={NATIVE_TICK[coin]}
         connectionState={connectionState}
         lastMessageAt={lastMessageAt}
       />
@@ -143,28 +153,28 @@ function ControlBar({
   coin,
   onCoinChange,
   nSigFigs,
-  onNSigFigsChange,
+  mantissa,
+  onTickChange,
   referencePrice,
-  nativeTick,
   connectionState,
   lastMessageAt,
 }: {
   coin: Coin;
   onCoinChange: (coin: Coin) => void;
   nSigFigs: NSigFigs;
-  onNSigFigsChange: (value: NSigFigs) => void;
+  mantissa: Mantissa;
+  onTickChange: (tick: number) => void;
   referencePrice: number;
-  nativeTick: number;
   connectionState: ConnectionState;
   lastMessageAt: number | null;
 }) {
   return (
     <div className="flex items-center justify-between px-3 py-2 border-b border-line">
       <PrecisionSelect
-        value={nSigFigs}
-        onChange={onNSigFigsChange}
+        nSigFigs={nSigFigs}
+        mantissa={mantissa}
+        onTickChange={onTickChange}
         referencePrice={referencePrice}
-        nativeTick={nativeTick}
       />
       <div className="flex items-center gap-2">
         <StatusDot state={connectionState} lastMessageAt={lastMessageAt} />
@@ -175,35 +185,41 @@ function ControlBar({
 }
 
 function PrecisionSelect({
-  value,
-  onChange,
+  nSigFigs,
+  mantissa,
+  onTickChange,
   referencePrice,
-  nativeTick,
 }: {
-  value: NSigFigs;
-  onChange: (value: NSigFigs) => void;
+  nSigFigs: NSigFigs;
+  mantissa: Mantissa;
+  onTickChange: (tick: number) => void;
   referencePrice: number;
-  nativeTick: number;
 }) {
+  // Filter the wanted ticks down to the ones the API can actually serve at the
+  // current reference price. If we have no price yet, fall back to all of them
+  // — the dropdown will start usable and re-render once the first frame lands.
+  const availableTicks = useMemo(() => {
+    if (referencePrice <= 0) return Array.from(TICK_OPTIONS);
+    return TICK_OPTIONS.filter((t) => tickToParams(t, referencePrice) !== null);
+  }, [referencePrice]);
+
+  const currentTick = referencePrice > 0
+    ? tickFromParams(referencePrice, nSigFigs, mantissa)
+    : null;
+
   return (
     <label className="relative inline-flex items-center text-[13px] text-text">
       <span className="sr-only">Price precision</span>
       <select
-        value={value ?? "full"}
-        onChange={(e) => {
-          const v = e.target.value;
-          onChange(v === "full" ? null : (Number(v) as NSigFigs));
-        }}
+        value={currentTick ?? ""}
+        onChange={(e) => onTickChange(Number(e.target.value))}
         className="appearance-none bg-transparent pr-4 cursor-pointer focus:outline-none font-mono"
       >
-        {N_SIG_FIGS_OPTIONS.map((option) => {
-          const optionTick = tickFromSigFigs(referencePrice, option, nativeTick);
-          return (
-            <option key={option ?? "full"} value={option ?? "full"} className="bg-panel font-mono">
-              {option === null ? "Full" : formatTick(optionTick)}
-            </option>
-          );
-        })}
+        {availableTicks.map((tick) => (
+          <option key={tick} value={tick} className="bg-panel font-mono">
+            {formatTick(tick)}
+          </option>
+        ))}
       </select>
       <Chevron />
     </label>
