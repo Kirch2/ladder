@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   COINS,
   SIZE_DECIMALS,
@@ -17,7 +17,6 @@ import {
   formatTick,
   sigFigsFromTick,
   tickFromSigFigs,
-  type LevelRow,
 } from "@/app/lib/format";
 import { useOrderBook } from "@/app/hooks/use-order-book";
 
@@ -112,7 +111,9 @@ export function OrderBook() {
               <BookRow
                 key={`ask-${row.px}`}
                 side="ask"
-                row={row}
+                px={row.px}
+                sz={row.sz}
+                total={row.total}
                 maxTotal={maxTotal}
                 sizeDecimals={sizeDecimals}
                 emphasized={i === askDisplay.length - 1}
@@ -131,7 +132,9 @@ export function OrderBook() {
               <BookRow
                 key={`bid-${row.px}`}
                 side="bid"
-                row={row}
+                px={row.px}
+                sz={row.sz}
+                total={row.total}
                 maxTotal={maxTotal}
                 sizeDecimals={sizeDecimals}
                 emphasized={i === 0}
@@ -248,7 +251,7 @@ function CoinIcon({ coin }: { coin: Coin }) {
   return coin === "BTC" ? <BtcIcon /> : <EthIcon />;
 }
 
-function BtcIcon() {
+const BtcIcon = memo(function BtcIcon() {
   return (
     <svg
       aria-hidden="true"
@@ -262,9 +265,9 @@ function BtcIcon() {
       />
     </svg>
   );
-}
+});
 
-function EthIcon() {
+const EthIcon = memo(function EthIcon() {
   return (
     <svg
       aria-hidden="true"
@@ -282,7 +285,7 @@ function EthIcon() {
       </g>
     </svg>
   );
-}
+});
 
 function StatusDot({
   state,
@@ -318,30 +321,37 @@ function StatusDot({
   );
 }
 
-function BookRow({
+// memo'd with flat primitive props so unchanged rows skip render between WS
+// frames. The parent's row object reference is new each frame, so passing
+// `row={...}` would defeat shallow comparison.
+const BookRow = memo(function BookRow({
   side,
-  row,
+  px,
+  sz,
+  total,
   maxTotal,
   sizeDecimals,
   emphasized = false,
 }: {
   side: "ask" | "bid";
-  row: LevelRow;
+  px: string;
+  sz: string;
+  total: number;
   maxTotal: number;
   sizeDecimals: number;
   emphasized?: boolean;
 }) {
-  const ratio = Math.max(0.04, row.total / maxTotal);
+  const ratio = Math.max(0.04, total / maxTotal);
   const fill = side === "ask" ? "bg-ask-fill" : "bg-bid-fill";
   const priceColor = side === "ask" ? "text-ask" : "text-bid";
   const weight = emphasized ? "font-medium" : "";
 
   const cellRef = useRef<HTMLDivElement>(null);
   // Seed prev with the current size so the first effect run (mount) doesn't flash.
-  const prevSizeRef = useRef<string>(row.sz);
+  const prevSizeRef = useRef<string>(sz);
   useEffect(() => {
-    if (prevSizeRef.current === row.sz) return;
-    prevSizeRef.current = row.sz;
+    if (prevSizeRef.current === sz) return;
+    prevSizeRef.current = sz;
     const el = cellRef.current;
     if (!el) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -351,7 +361,7 @@ function BookRow({
       [{ backgroundColor: flashColor }, { backgroundColor: "rgba(0,0,0,0)" }],
       { duration: 420, easing: "ease-out" },
     );
-  }, [row.sz, side]);
+  }, [sz, side]);
 
   return (
     <div
@@ -364,18 +374,18 @@ function BookRow({
         className={`absolute inset-y-0 right-0 ${fill}`}
         style={{ width: `${ratio * 100}%` }}
       />
-      <span className={`relative ${priceColor} ${weight} font-mono`}>{formatPrice(row.px)}</span>
+      <span className={`relative ${priceColor} ${weight} font-mono`}>{formatPrice(px)}</span>
       <span className={`relative text-right text-text ${weight} font-mono`}>
-        {formatSize(row.sz, sizeDecimals)}
+        {formatSize(sz, sizeDecimals)}
       </span>
       <span className={`relative text-right text-text ${weight} font-mono`}>
-        {formatSize(row.total, sizeDecimals)}
+        {formatSize(total, sizeDecimals)}
       </span>
     </div>
   );
-}
+});
 
-function SkeletonRow() {
+const SkeletonRow = memo(function SkeletonRow() {
   return (
     <div
       aria-hidden="true"
@@ -386,7 +396,7 @@ function SkeletonRow() {
       <span className="h-[8px] w-10 rounded bg-line-strong/60 animate-pulse justify-self-end" />
     </div>
   );
-}
+});
 
 function SpreadRow({ spread, mid }: { spread: number; mid: number }) {
   const pct = formatSpreadPercent(spread, mid);
@@ -405,7 +415,7 @@ function SpreadRow({ spread, mid }: { spread: number; mid: number }) {
   );
 }
 
-function Chevron() {
+const Chevron = memo(function Chevron() {
   return (
     <svg
       aria-hidden="true"
@@ -422,7 +432,7 @@ function Chevron() {
       />
     </svg>
   );
-}
+});
 
 function useIsStale(lastMessageAt: number | null, thresholdMs: number): boolean {
   const [isStale, setIsStale] = useState(false);
