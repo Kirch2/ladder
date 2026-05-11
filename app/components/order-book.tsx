@@ -246,10 +246,14 @@ function PrecisionSelect({
 
   const currentTick =
     referencePrice > 0 ? tickFromSigFigs(referencePrice, nSigFigs) : null;
+  // Keep the Select controlled throughout its lifetime — before the first WS
+  // frame arrives we don't have a real tick yet, so fall back to the first
+  // available option so `value` is always a defined string.
+  const selectValue = String(currentTick ?? availableTicks[0] ?? "");
 
   return (
     <Select
-      value={currentTick !== null ? String(currentTick) : undefined}
+      value={selectValue}
       onValueChange={(v) => onTickChange(Number(v))}
     >
       <SelectTrigger
