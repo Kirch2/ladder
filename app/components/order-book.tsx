@@ -488,7 +488,7 @@ function SpreadRow({
           across the visible levels. Replaces the bottom border. */}
       <span
         aria-hidden="true"
-        className="absolute inset-x-0 bottom-0 h-[2px] flex opacity-60"
+        className="absolute inset-x-0 bottom-0 h-1 flex opacity-60"
       >
         <span
           className="bg-bid transition-[width] duration-500"
