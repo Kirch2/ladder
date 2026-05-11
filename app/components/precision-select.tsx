@@ -54,7 +54,7 @@ export function PrecisionSelect({
     >
       <SelectTrigger
         aria-label="Tick precision"
-        className="text-[15px] text-text font-mono"
+        className="select-none text-[15px] text-text font-mono"
       >
         <span className="text-[12px] uppercase tracking-wide text-text font-sans">
           Tick

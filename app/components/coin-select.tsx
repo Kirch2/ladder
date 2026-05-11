@@ -25,7 +25,7 @@ export function CoinSelect({
     <Select value={value} onValueChange={(v) => onChange(v as Coin)}>
       <SelectTrigger
         aria-label="Symbol"
-        className="text-[15px] text-text font-medium"
+        className="select-none text-[15px] text-text font-medium"
       >
         <CoinIcon coin={value} />
         <span>{value}</span>
