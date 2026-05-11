@@ -1,30 +1,17 @@
 "use client";
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import {
-  COINS,
-  SIZE_DECIMALS,
-  TICK_OPTIONS_BY_COIN,
-  type Coin,
-  type ConnectionState,
-  type NSigFigs,
-} from "@/app/lib/hyperliquid";
+import { SIZE_DECIMALS, type Coin, type NSigFigs } from "@/app/lib/hyperliquid";
 import {
   buildRows,
   formatPrice,
   formatSize,
   formatSpreadPercent,
-  formatTick,
   sigFigsFromTick,
-  tickFromSigFigs,
 } from "@/app/lib/format";
 import { useOrderBook } from "@/app/hooks/use-order-book";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/app/components/ui/select";
+import { ControlBar } from "@/app/components/control-bar";
+import { SkeletonRow } from "@/app/components/skeleton-row";
 
 const ROWS_PER_SIDE = 14;
 
@@ -194,183 +181,6 @@ export function OrderBook() {
   );
 }
 
-function ControlBar({
-  coin,
-  onCoinChange,
-  nSigFigs,
-  onTickChange,
-  referencePrice,
-  connectionState,
-  lastMessageAt,
-}: {
-  coin: Coin;
-  onCoinChange: (coin: Coin) => void;
-  nSigFigs: NSigFigs;
-  onTickChange: (tick: number) => void;
-  referencePrice: number;
-  connectionState: ConnectionState;
-  lastMessageAt: number | null;
-}) {
-  return (
-    <div className="flex items-center justify-between px-5 py-3 border-b border-line">
-      <PrecisionSelect
-        coin={coin}
-        nSigFigs={nSigFigs}
-        onTickChange={onTickChange}
-        referencePrice={referencePrice}
-      />
-      <div className="flex items-center gap-2.5">
-        <StatusDot state={connectionState} lastMessageAt={lastMessageAt} />
-        <CoinSelect value={coin} onChange={onCoinChange} />
-      </div>
-    </div>
-  );
-}
-
-function PrecisionSelect({
-  coin,
-  nSigFigs,
-  onTickChange,
-  referencePrice,
-}: {
-  coin: Coin;
-  nSigFigs: NSigFigs;
-  onTickChange: (tick: number) => void;
-  referencePrice: number;
-}) {
-  const wanted = TICK_OPTIONS_BY_COIN[coin];
-  const availableTicks =
-    referencePrice > 0
-      ? wanted.filter((t) => sigFigsFromTick(t, referencePrice) !== null)
-      : wanted;
-
-  const currentTick =
-    referencePrice > 0 ? tickFromSigFigs(referencePrice, nSigFigs) : null;
-  // Keep the Select controlled throughout its lifetime — before the first WS
-  // frame arrives we don't have a real tick yet, so fall back to the first
-  // available option so `value` is always a defined string.
-  const selectValue = String(currentTick ?? availableTicks[0] ?? "");
-
-  return (
-    <Select
-      value={selectValue}
-      onValueChange={(v) => onTickChange(Number(v))}
-    >
-      <SelectTrigger
-        aria-label="Tick precision"
-        className="text-[15px] text-text font-mono"
-      >
-        <span className="text-[12px] uppercase tracking-wide text-text font-sans">
-          Tick
-        </span>
-        <span>{currentTick !== null ? formatTick(currentTick) : "—"}</span>
-        <span className="text-[12px] uppercase tracking-wide text-muted font-sans">
-          USD
-        </span>
-      </SelectTrigger>
-      <SelectContent>
-        {availableTicks.map((tick) => (
-          <SelectItem
-            key={tick}
-            value={String(tick)}
-            className="font-mono text-[14px]"
-          >
-            <span className="inline-flex items-center gap-1">
-              {formatTick(tick)}
-              <span className="text-[11px] uppercase tracking-wide text-muted font-sans">
-                USD
-              </span>
-            </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function CoinSelect({
-  value,
-  onChange,
-}: {
-  value: Coin;
-  onChange: (coin: Coin) => void;
-}) {
-  return (
-    <Select value={value} onValueChange={(v) => onChange(v as Coin)}>
-      <SelectTrigger
-        aria-label="Symbol"
-        className="text-[15px] text-text font-medium"
-      >
-        <CoinIcon coin={value} />
-        <span>{value}</span>
-      </SelectTrigger>
-      <SelectContent>
-        {COINS.map((c) => (
-          <SelectItem key={c} value={c} className="text-[14px]">
-            <span className="inline-flex items-center gap-2">
-              <CoinIcon coin={c} />
-              {c}
-            </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-const COIN_ICON_URL: Record<Coin, string> = {
-  BTC: "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/btc.png",
-  ETH: "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/eth.png",
-};
-
-function CoinIcon({ coin }: { coin: Coin }) {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={COIN_ICON_URL[coin]}
-      alt=""
-      aria-hidden="true"
-      width={18}
-      height={18}
-      className="w-[18px] h-[18px] shrink-0"
-    />
-  );
-}
-
-function StatusDot({
-  state,
-  lastMessageAt,
-}: {
-  state: ConnectionState;
-  lastMessageAt: number | null;
-}) {
-  const isStale = useIsStale(lastMessageAt, 5000);
-  const display: ConnectionState | "stale" =
-    state === "live" && isStale ? "stale" : state;
-
-  const color: Record<typeof display, string> = {
-    live: "bg-bid",
-    connecting: "bg-amber-400",
-    stale: "bg-amber-400",
-    error: "bg-ask",
-  };
-  const label: Record<typeof display, string> = {
-    live: "Live",
-    connecting: "Connecting",
-    stale: "Stale",
-    error: "Disconnected",
-  };
-
-  return (
-    <span
-      role="status"
-      aria-label={`Connection: ${label[display]}`}
-      title={label[display]}
-      className={`w-2 h-2 rounded-full ${color[display]} ${display === "live" ? "animate-pulse" : ""}`}
-    />
-  );
-}
-
 // memo'd with flat primitive props so unchanged rows skip render between WS
 // frames. Each row tracks its own hover state and, while hovered, freezes
 // the displayed sz/total/ratio so the user can read a stable snapshot —
@@ -480,29 +290,12 @@ const BookRow = memo(function BookRow({
           </span>
         )}
       </span>
-      <span
-        className={`relative text-right text-text ${weight} font-mono`}
-      >
+      <span className={`relative text-right text-text ${weight} font-mono`}>
         {formatSize(showSz, sizeDecimals)}
       </span>
-      <span
-        className={`relative text-right text-text ${weight} font-mono`}
-      >
+      <span className={`relative text-right text-text ${weight} font-mono`}>
         {formatSize(showTotal, sizeDecimals)}
       </span>
-    </div>
-  );
-});
-
-const SkeletonRow = memo(function SkeletonRow() {
-  return (
-    <div
-      aria-hidden="true"
-      className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[26px]"
-    >
-      <span className="h-[8px] w-12 rounded bg-line-strong/60 animate-pulse" />
-      <span className="h-[8px] w-10 rounded bg-line-strong/60 animate-pulse justify-self-end" />
-      <span className="h-[8px] w-10 rounded bg-line-strong/60 animate-pulse justify-self-end" />
     </div>
   );
 });
@@ -552,22 +345,4 @@ function SpreadRow({
       </span>
     </div>
   );
-}
-
-function useIsStale(lastMessageAt: number | null, thresholdMs: number): boolean {
-  const [isStale, setIsStale] = useState(false);
-  // Stash the latest timestamp in a ref so the interval doesn't churn on every
-  // WS frame (lastMessageAt updates many times per second).
-  const lastRef = useRef(lastMessageAt);
-  lastRef.current = lastMessageAt;
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      const ts = lastRef.current;
-      setIsStale(ts !== null && Date.now() - ts > thresholdMs);
-    }, 1000);
-    return () => clearInterval(id);
-  }, [thresholdMs]);
-
-  return isStale;
 }
