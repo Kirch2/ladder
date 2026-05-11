@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ladder
 
-## Getting Started
+Live L2 order book widget for Hyperliquid. Streams `l2Book` over WebSocket and renders 14 levels per side for BTC and ETH with adjustable price precision.
 
-First, run the development server:
+Repo: [Kirch2/ladder](https://github.com/Kirch2/ladder)
+
+## Stack
+
+- Next.js 16 (App Router) · React 19 · TypeScript
+- Tailwind CSS v4
+- Radix Select (via shadcn) · lucide-react
+- vitest + @testing-library
+
+## Quickstart
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Script | What it does |
+|---|---|
+| `npm run dev` | Dev server (webpack — see note below) |
+| `npm run build` | Production build |
+| `npm run start` | Run the production build |
+| `npm test` | vitest run |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Data source
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Subscribes to `wss://api.hyperliquid.xyz/ws` with `{ type: "l2Book", coin, nSigFigs }`. The dropdown surfaces a coin-specific list of tick prices that map to one of nSigFigs ∈ {2,3,4,5} at the current reference price.
 
-## Learn More
+## Project layout
 
-To learn more about Next.js, take a look at the following resources:
+```
+app/
+├── components/
+│   ├── order-book.tsx        # top-level orchestration + SpreadRow
+│   ├── book-row.tsx          # one price level (memo'd + hover-freeze)
+│   ├── control-bar.tsx       # header: precision + status + symbol
+│   ├── precision-select.tsx  # Tick dropdown
+│   ├── coin-select.tsx       # Symbol dropdown
+│   ├── coin-icon.tsx         # PNG icon (<img> from GitHub raw)
+│   ├── status-dot.tsx        # live / connecting / stale / error
+│   ├── skeleton-row.tsx
+│   ├── types.ts              # Tick type
+│   └── ui/select.tsx         # shadcn Select wrapper
+├── hooks/
+│   └── use-order-book.ts     # WebSocket lifecycle + subscriptions
+└── lib/
+    ├── hyperliquid.ts        # API constants + types
+    ├── format.ts             # formatters + sigFigs ↔ tick helpers
+    └── utils.ts              # cn() helper
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Notable behavior
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Hover-freeze**: hovering a row pins its size / total / cumulative bar to that moment. Other rows keep updating.
+- **Inside-price ▲/▼ tick**: 1.5s fade next to the best bid / ask on price change.
+- **Depth imbalance bar**: thin colored bar on the spread row, split by total visible bid vs ask volume. The dominant side brightens; the smaller side dims.
+- **Status dot**: green live, amber connecting / stale (no message in 5s), red error.
+- **Reconnect**: exponential backoff (1.5s → 30s cap). Forced reconnect if the tab was hidden longer than 5s.
 
-## Deploy on Vercel
+## Customization
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+To add a coin: extend `Coin`, `COINS`, `TICK_OPTIONS_BY_COIN`, and `SIZE_DECIMALS` in `app/lib/hyperliquid.ts`; add the icon URL in `app/components/coin-icon.tsx`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Why webpack in dev
+
+`next dev` uses `--webpack` because Turbopack's per-session memory growth was an issue on this machine. Production builds are unaffected.
+
+## Testing
+
+vitest + jsdom. `vitest.setup.ts` stubs the Web Animations API and `matchMedia` (jsdom doesn't ship them) and wires `@testing-library` auto-cleanup. Coverage focuses on the WS hook, the tick/sig-figs math, and `BookRow`'s hover-freeze pattern.
