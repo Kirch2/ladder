@@ -20,9 +20,12 @@ export function useInsideTick(
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Reset baseline on resetKey change. Runs first so the price-effect below
-  // sees prevRef.current === 0 and skips firing a spurious tick.
+  // sees prevRef.current === 0 and skips firing a spurious tick. The
+  // setTick(null) is intentional — clearing a stale tick from the prior
+  // instrument is the whole point of this effect, not derivable.
   useEffect(() => {
     prevRef.current = 0;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTick(null);
     if (timerRef.current) {
       clearTimeout(timerRef.current);

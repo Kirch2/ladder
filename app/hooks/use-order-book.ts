@@ -173,6 +173,8 @@ export function useOrderBook(coin: Coin, nSigFigs: NSigFigs): OrderBookSnapshot 
     activeSubRef.current = next;
     // Clear the displayed book so the rows don't briefly show stale levels
     // aggregated at the OLD precision while we wait for the new feed.
+    // Intentional UX reset on subscription-shape change — not derivable.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBook(EMPTY_BOOK);
 
     // If the socket hasn't opened yet (first render) the open-handler in

@@ -50,17 +50,23 @@ export function OrderBook() {
 
   // Keep a stable price across the empty-book gap during re-subscription, so
   // the precision dropdown doesn't flash to the first option while the new
-  // feed warms up. Reset whenever the coin changes.
+  // feed warms up. Reset whenever the coin changes. Render-time ref writes
+  // are intentional here — this is the React-docs pattern for adjusting
+  // stored value when a prop changes, without an extra render via setState.
   const stablePriceRef = useRef<{ coin: Coin; price: number }>({
     coin,
     price: 0,
   });
+  // eslint-disable-next-line react-hooks/refs
   if (stablePriceRef.current.coin !== coin) {
+    // eslint-disable-next-line react-hooks/refs
     stablePriceRef.current = { coin, price: 0 };
   }
   if (referencePrice > 0) {
+    // eslint-disable-next-line react-hooks/refs
     stablePriceRef.current.price = referencePrice;
   }
+  // eslint-disable-next-line react-hooks/refs
   const stablePrice = stablePriceRef.current.price || referencePrice;
 
   const handleTickChange = (tick: number) => {
@@ -82,6 +88,7 @@ export function OrderBook() {
         onCoinChange={setCoin}
         nSigFigs={nSigFigs}
         onTickChange={handleTickChange}
+        // eslint-disable-next-line react-hooks/refs
         referencePrice={stablePrice}
         connectionState={connectionState}
         lastMessageAt={lastMessageAt}

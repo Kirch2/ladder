@@ -11,6 +11,9 @@ import type { ConnectionState } from "@/app/lib/hyperliquid";
 function useIsStale(lastMessageAt: number | null, thresholdMs: number): boolean {
   const [isStale, setIsStale] = useState(false);
   const lastRef = useRef(lastMessageAt);
+  // Latest-value ref pattern: write during render so the 1s interval below
+  // doesn't tear down on every WS frame (would churn many times per second).
+  // eslint-disable-next-line react-hooks/refs
   lastRef.current = lastMessageAt;
 
   useEffect(() => {
