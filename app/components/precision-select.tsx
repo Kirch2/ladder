@@ -1,15 +1,8 @@
 "use client";
 
-import {
-  TICK_OPTIONS_BY_COIN,
-  type Coin,
-  type NSigFigs,
-} from "@/app/lib/hyperliquid";
-import {
-  formatTick,
-  sigFigsFromTick,
-  tickFromSigFigs,
-} from "@/app/lib/format";
+import type { Coin, NSigFigs } from "@/app/lib/hyperliquid";
+import { formatTick, tickFromSigFigs } from "@/app/lib/format";
+import { availableTicksForCoin } from "@/app/lib/ticks";
 import {
   Select,
   SelectContent,
@@ -34,11 +27,7 @@ export function PrecisionSelect({
   onTickChange: (tick: number) => void;
   referencePrice: number;
 }) {
-  const wanted = TICK_OPTIONS_BY_COIN[coin];
-  const availableTicks =
-    referencePrice > 0
-      ? wanted.filter((t) => sigFigsFromTick(t, referencePrice) !== null)
-      : wanted;
+  const availableTicks = availableTicksForCoin(coin, referencePrice);
 
   const currentTick =
     referencePrice > 0 ? tickFromSigFigs(referencePrice, nSigFigs) : null;
@@ -60,7 +49,7 @@ export function PrecisionSelect({
     >
       <SelectTrigger
         aria-label="Tick precision"
-        className="select-none text-[15px] text-text font-mono disabled:opacity-50 disabled:cursor-not-allowed"
+        className="select-none text-[15px] text-text font-mono disabled:opacity-50 disabled:cursor-not-allowed data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed"
       >
         <span className="text-[12px] uppercase tracking-wide text-text font-sans">
           Tick

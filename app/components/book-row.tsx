@@ -1,29 +1,9 @@
 "use client";
 
-import { memo, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { formatPrice, formatSize } from "@/app/lib/format";
+import { Cell } from "@/app/components/cell";
 import type { Tick } from "@/app/components/types";
-
-/** Three-column cell wrapper. Shares the `relative font-mono` defaults so
- * the call sites only specify what's actually different (color, weight,
- * alignment). */
-function Cell({
-  align = "left",
-  className = "",
-  children,
-}: {
-  align?: "left" | "right";
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <span
-      className={`relative font-mono ${align === "right" ? "text-right" : ""} ${className}`}
-    >
-      {children}
-    </span>
-  );
-}
 
 /**
  * One price level in the order book. Memo'd with flat primitive props so

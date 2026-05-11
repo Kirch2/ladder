@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { SIZE_DECIMALS, type Coin, type NSigFigs } from "@/app/lib/hyperliquid";
 import {
   buildRows,
@@ -8,9 +8,10 @@ import {
   formatSpreadPercent,
   sigFigsFromTick,
 } from "@/app/lib/format";
+import { sideBrightness } from "@/app/lib/imbalance";
 import { useOrderBook } from "@/app/hooks/use-order-book";
+import { useInsideTick } from "@/app/hooks/use-inside-tick";
 import { BookRow } from "@/app/components/book-row";
-import type { Tick } from "@/app/components/types";
 import { ControlBar } from "@/app/components/control-bar";
 import { SkeletonRow } from "@/app/components/skeleton-row";
 
@@ -41,39 +42,11 @@ export function OrderBook() {
   const spread = bestAsk > 0 && bestBid > 0 ? bestAsk - bestBid : 0;
   const referencePrice = mid || bestAsk || bestBid;
 
-  // Directional tick on each side: fires for ~1.5s when the inside price
-  // moves, then auto-clears.
-  const [bidTick, setBidTick] = useState<Tick>(null);
-  const [askTick, setAskTick] = useState<Tick>(null);
-  const prevBestBidRef = useRef(0);
-  const prevBestAskRef = useRef(0);
-  const bidTickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const askTickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    const prev = prevBestBidRef.current;
-    prevBestBidRef.current = bestBid;
-    if (prev <= 0 || bestBid <= 0 || prev === bestBid) return;
-    setBidTick({ dir: bestBid > prev ? "up" : "down", ts: Date.now() });
-    if (bidTickTimerRef.current) clearTimeout(bidTickTimerRef.current);
-    bidTickTimerRef.current = setTimeout(() => setBidTick(null), 1500);
-  }, [bestBid]);
-
-  useEffect(() => {
-    const prev = prevBestAskRef.current;
-    prevBestAskRef.current = bestAsk;
-    if (prev <= 0 || bestAsk <= 0 || prev === bestAsk) return;
-    setAskTick({ dir: bestAsk > prev ? "up" : "down", ts: Date.now() });
-    if (askTickTimerRef.current) clearTimeout(askTickTimerRef.current);
-    askTickTimerRef.current = setTimeout(() => setAskTick(null), 1500);
-  }, [bestAsk]);
-
-  useEffect(() => {
-    prevBestBidRef.current = 0;
-    prevBestAskRef.current = 0;
-    setBidTick(null);
-    setAskTick(null);
-  }, [coin]);
+  // Directional ▲/▼ on each side: fires when the inside price moves and
+  // auto-clears after 1.5s. Reset when the coin changes — prior snapshot is
+  // meaningless once we're looking at a different instrument.
+  const bidTick = useInsideTick(bestBid, coin);
+  const askTick = useInsideTick(bestAsk, coin);
 
   // Keep a stable price across the empty-book gap during re-subscription, so
   // the precision dropdown doesn't flash to the first option while the new
@@ -190,14 +163,8 @@ function SpreadRow({
   bidShare: number;
 }) {
   const pct = formatSpreadPercent(spread, mid);
-  // Each side ramps brightness around 1.0: up toward PEAK when it's the
-  // dominant side, down toward DARK when it's the smaller side.
-  const BASE = 1;
-  const PEAK = 1.4;
-  const DARK = 0.7;
-  const bidAmp = (bidShare - 0.5) * 2; // −1 (ask dominates) … +1 (bid dominates)
-  const sideBrightness = (amp: number) =>
-    amp >= 0 ? BASE + amp * (PEAK - BASE) : BASE + amp * (BASE - DARK);
+  // −1 (ask dominates) … 0 (balanced) … +1 (bid dominates)
+  const bidAmp = (bidShare - 0.5) * 2;
   const bidBrightness = sideBrightness(bidAmp);
   const askBrightness = sideBrightness(-bidAmp);
   return (
