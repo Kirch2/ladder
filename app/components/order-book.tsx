@@ -473,6 +473,12 @@ function SpreadRow({
   bidShare: number;
 }) {
   const pct = formatSpreadPercent(spread, mid);
+  // Amplify the dominant side's opacity as we move away from balance.
+  // The opposite side stays at base — it never gets dimmed.
+  const BASE = 0.6;
+  const PEAK = 1;
+  const bidIntensity = BASE + (PEAK - BASE) * Math.max(0, (bidShare - 0.5) * 2);
+  const askIntensity = BASE + (PEAK - BASE) * Math.max(0, (0.5 - bidShare) * 2);
   return (
     <div
       role="row"
@@ -488,13 +494,16 @@ function SpreadRow({
           across the visible levels. Replaces the bottom border. */}
       <span
         aria-hidden="true"
-        className="absolute inset-x-0 bottom-0 h-1 flex opacity-60"
+        className="absolute inset-x-0 bottom-0 h-1 flex"
       >
         <span
-          className="bg-bid transition-[width] duration-500"
-          style={{ width: `${bidShare * 100}%` }}
+          className="bg-bid transition-[width,opacity] duration-500"
+          style={{ width: `${bidShare * 100}%`, opacity: bidIntensity }}
         />
-        <span className="bg-ask flex-1" />
+        <span
+          className="bg-ask flex-1 transition-opacity duration-500"
+          style={{ opacity: askIntensity }}
+        />
       </span>
     </div>
   );
