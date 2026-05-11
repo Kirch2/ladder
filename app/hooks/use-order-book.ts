@@ -11,7 +11,9 @@ import {
   type RawLevel,
 } from "@/app/lib/hyperliquid";
 
-const RECONNECT_DELAY_MS = 1500;
+const RECONNECT_BASE_MS = 1500;
+const RECONNECT_MAX_MS = 30_000;
+const HIDDEN_RECONNECT_THRESHOLD_MS = 5_000;
 
 type Book = {
   bids: RawLevel[];
@@ -45,6 +47,8 @@ export function useOrderBook(coin: Coin, nSigFigs: NSigFigs): OrderBookSnapshot 
   useEffect(() => {
     let stopped = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+    let hiddenAt: number | null = null;
 
     function connect() {
       if (stopped) return;
@@ -53,6 +57,7 @@ export function useOrderBook(coin: Coin, nSigFigs: NSigFigs): OrderBookSnapshot 
       wsRef.current = ws;
 
       ws.addEventListener("open", () => {
+        attempts = 0;
         const sub = activeSubRef.current;
         if (sub) {
           ws.send(JSON.stringify({ method: "subscribe", subscription: sub }));
@@ -61,9 +66,10 @@ export function useOrderBook(coin: Coin, nSigFigs: NSigFigs): OrderBookSnapshot 
       });
 
       ws.addEventListener("message", (event) => {
+        if (typeof event.data !== "string") return;
         let parsed: L2BookMessage;
         try {
-          parsed = JSON.parse(event.data as string) as L2BookMessage;
+          parsed = JSON.parse(event.data) as L2BookMessage;
         } catch {
           return;
         }
@@ -80,14 +86,32 @@ export function useOrderBook(coin: Coin, nSigFigs: NSigFigs): OrderBookSnapshot 
       ws.addEventListener("close", () => {
         wsRef.current = null;
         if (stopped) return;
-        reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+        const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** attempts);
+        attempts++;
+        reconnectTimer = setTimeout(connect, delay);
       });
     }
 
+    // Force-reconnect on return from a long-hidden tab: browsers throttle
+    // background sockets and may leave us with a silently-dead connection.
+    function handleVisibility() {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+        return;
+      }
+      const hiddenFor = hiddenAt ? Date.now() - hiddenAt : 0;
+      hiddenAt = null;
+      if (hiddenFor > HIDDEN_RECONNECT_THRESHOLD_MS) {
+        wsRef.current?.close(); // the close handler reconnects with backoff
+      }
+    }
+
     connect();
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       stopped = true;
+      document.removeEventListener("visibilitychange", handleVisibility);
       if (reconnectTimer) clearTimeout(reconnectTimer);
       const ws = wsRef.current;
       const sub = activeSubRef.current;

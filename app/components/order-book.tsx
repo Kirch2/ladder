@@ -8,35 +8,20 @@ import {
   type Coin,
   type ConnectionState,
   type NSigFigs,
-  type RawLevel,
 } from "@/app/lib/hyperliquid";
 import {
+  buildRows,
   formatPrice,
   formatSize,
   formatSpreadPercent,
   formatTick,
   sigFigsFromTick,
   tickFromSigFigs,
+  type LevelRow,
 } from "@/app/lib/format";
 import { useOrderBook } from "@/app/hooks/use-order-book";
 
 const ROWS_PER_SIDE = 12;
-
-type LevelRow = {
-  px: string;
-  sz: string;
-  /** Cumulative size on this side from the best level through this one. */
-  total: number;
-};
-
-function buildRows(levels: RawLevel[], rows: number): LevelRow[] {
-  const slice = levels.slice(0, rows);
-  let total = 0;
-  return slice.map((level) => {
-    total += Number(level.sz);
-    return { px: level.px, sz: level.sz, total };
-  });
-}
 
 export function OrderBook() {
   const [coin, setCoin] = useState<Coin>("BTC");
@@ -441,13 +426,18 @@ function Chevron() {
 
 function useIsStale(lastMessageAt: number | null, thresholdMs: number): boolean {
   const [isStale, setIsStale] = useState(false);
+  // Stash the latest timestamp in a ref so the interval doesn't churn on every
+  // WS frame (lastMessageAt updates many times per second).
+  const lastRef = useRef(lastMessageAt);
+  lastRef.current = lastMessageAt;
+
   useEffect(() => {
-    if (lastMessageAt === null) return;
-    setIsStale(false);
     const id = setInterval(() => {
-      setIsStale(Date.now() - lastMessageAt > thresholdMs);
+      const ts = lastRef.current;
+      setIsStale(ts !== null && Date.now() - ts > thresholdMs);
     }, 1000);
     return () => clearInterval(id);
-  }, [lastMessageAt, thresholdMs]);
+  }, [thresholdMs]);
+
   return isStale;
 }

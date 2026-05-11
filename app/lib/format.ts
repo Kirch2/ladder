@@ -1,4 +1,20 @@
-import type { NSigFigs } from "./hyperliquid";
+import type { NSigFigs, RawLevel } from "./hyperliquid";
+
+export type LevelRow = {
+  px: string;
+  sz: string;
+  /** Cumulative size from the best level through this one. */
+  total: number;
+};
+
+/** Slice + accumulate sizes into a stable row shape for rendering. */
+export function buildRows(levels: RawLevel[], rows: number): LevelRow[] {
+  let total = 0;
+  return levels.slice(0, rows).map((level) => {
+    total += Number(level.sz) || 0;
+    return { px: level.px, sz: level.sz, total };
+  });
+}
 
 /**
  * Decimal places shrink as the magnitude grows, so $105,533 reads as "105,533"
