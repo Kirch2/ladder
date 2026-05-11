@@ -68,7 +68,7 @@ To add a coin: extend `Coin`, `COINS`, `TICK_OPTIONS_BY_COIN`, and `SIZE_DECIMAL
 
 ## Why webpack in dev
 
-`next dev` uses `--webpack` because Turbopack's per-session memory growth was an issue on this machine. Production builds are unaffected.
+`next dev` uses `--webpack` to avoid Turbopack's per-session memory growth. Production builds are unaffected.
 
 ## Testing
 
