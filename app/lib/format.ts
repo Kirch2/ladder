@@ -42,8 +42,12 @@ import type { Mantissa, NSigFigs } from "./hyperliquid";
 
 /**
  * Reverse-derive (nSigFigs, mantissa) from a desired tick at a reference price.
- * Returns null if the tick isn't achievable within the API's allowed
- * `nSigFigs ∈ {2,3,4,5}` and `mantissa ∈ {1,2,5}` ranges.
+ * Returns null if the tick isn't achievable.
+ *
+ * Hyperliquid constraint (verified empirically against the WS): `mantissa`
+ * (2 or 5) is only accepted when `nSigFigs === 5`. Sending mantissa with any
+ * other nSigFigs causes the server to close the connection with code 1006.
+ * So mantissa ∈ {2, 5} is only paired with nSigFigs=5 here.
  */
 export function tickToParams(
   tick: number,
@@ -54,6 +58,7 @@ export function tickToParams(
   for (const nSigFigs of [5, 4, 3, 2] as const) {
     const baseTick = Math.pow(10, baseExp - nSigFigs + 1);
     for (const mantissa of [1, 2, 5] as const) {
+      if (mantissa !== 1 && nSigFigs !== 5) continue;
       const candidate = mantissa * baseTick;
       if (Math.abs(candidate - tick) <= tick * 1e-9) {
         return { nSigFigs, mantissa };
