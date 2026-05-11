@@ -46,6 +46,16 @@ describe("sigFigsFromTick", () => {
       }
     }
   });
+  it("handles the $99,999 → $100,000 decade boundary correctly", () => {
+    // Just below the decade: 5 sig figs of $99,999 → tick $1
+    expect(tickFromSigFigs(99_999, 5)).toBe(1);
+    expect(sigFigsFromTick(1, 99_999)).toBe(5);
+    // At the decade: 5 sig figs of $100,000 → tick $10 (digits shift)
+    expect(tickFromSigFigs(100_000, 5)).toBe(10);
+    expect(sigFigsFromTick(10, 100_000)).toBe(5);
+    // Tick=1 isn't reachable at $100,000 (would need nSigFigs=6, unsupported)
+    expect(sigFigsFromTick(1, 100_000)).toBeNull();
+  });
 });
 
 describe("formatPrice", () => {

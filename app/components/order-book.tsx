@@ -9,7 +9,8 @@ import {
   sigFigsFromTick,
 } from "@/app/lib/format";
 import { useOrderBook } from "@/app/hooks/use-order-book";
-import { BookRow, type Tick } from "@/app/components/book-row";
+import { BookRow } from "@/app/components/book-row";
+import type { Tick } from "@/app/components/types";
 import { ControlBar } from "@/app/components/control-bar";
 import { SkeletonRow } from "@/app/components/skeleton-row";
 

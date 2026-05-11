@@ -47,14 +47,20 @@ export function PrecisionSelect({
   // available option so `value` is always a defined string.
   const selectValue = String(currentTick ?? availableTicks[0] ?? "");
 
+  // Before the first WS frame arrives we can't translate a user's pick to
+  // (nSigFigs) — `sigFigsFromTick` needs a real price. Disable the trigger
+  // until we have one so a click in that window doesn't silently no-op.
+  const disabled = referencePrice <= 0;
+
   return (
     <Select
       value={selectValue}
       onValueChange={(v) => onTickChange(Number(v))}
+      disabled={disabled}
     >
       <SelectTrigger
         aria-label="Tick precision"
-        className="select-none text-[15px] text-text font-mono"
+        className="select-none text-[15px] text-text font-mono disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span className="text-[12px] uppercase tracking-wide text-text font-sans">
           Tick

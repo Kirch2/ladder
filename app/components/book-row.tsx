@@ -2,10 +2,7 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import { formatPrice, formatSize } from "@/app/lib/format";
-
-/** A directional inside-price change marker — direction and a timestamp so
- * consecutive ticks restart the fade animation via React keying. */
-export type Tick = { dir: "up" | "down"; ts: number } | null;
+import type { Tick } from "@/app/components/types";
 
 /**
  * One price level in the order book. Memo'd with flat primitive props so
@@ -81,6 +78,8 @@ export const BookRow = memo(function BookRow({
     <div
       role="row"
       onMouseEnter={() => {
+        // Snapshot BEFORE flipping isHovering so the next render reads the
+        // pinned values rather than live props arriving from the next frame.
         frozenRef.current = { sz, total, ratio };
         setIsHovering(true);
       }}
