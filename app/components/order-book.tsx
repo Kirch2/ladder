@@ -1,7 +1,6 @@
 "use client";
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
 import {
   COINS,
   SIZE_DECIMALS,
@@ -20,6 +19,12 @@ import {
   tickFromSigFigs,
 } from "@/app/lib/format";
 import { useOrderBook } from "@/app/hooks/use-order-book";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/app/components/ui/select";
 
 const ROWS_PER_SIDE = 14;
 
@@ -51,9 +56,7 @@ export function OrderBook() {
   const referencePrice = mid || bestAsk || bestBid;
 
   // Directional tick on each side: fires for ~1.5s when the inside price
-  // moves, then auto-clears. The inside BookRow shows a ▲/▼ glyph during that
-  // window so a price tick is visible even when size at the new level didn't
-  // change.
+  // moves, then auto-clears.
   const [bidTick, setBidTick] = useState<Tick>(null);
   const [askTick, setAskTick] = useState<Tick>(null);
   const prevBestBidRef = useRef(0);
@@ -79,7 +82,6 @@ export function OrderBook() {
     askTickTimerRef.current = setTimeout(() => setAskTick(null), 1500);
   }, [bestAsk]);
 
-  // Reset ticks when the coin changes — prior price snapshot is meaningless.
   useEffect(() => {
     prevBestBidRef.current = 0;
     prevBestAskRef.current = 0;
@@ -108,9 +110,7 @@ export function OrderBook() {
     setNSigFigs(next);
   };
 
-  // Reverse asks so the best ask sits immediately above the spread row.
   const askDisplay = [...askRows].reverse();
-
   const sizeDecimals = SIZE_DECIMALS[coin];
 
   return (
@@ -238,34 +238,49 @@ function PrecisionSelect({
   onTickChange: (tick: number) => void;
   referencePrice: number;
 }) {
-  // Fall back to the full list before the first frame lands so the dropdown
-  // renders usable on cold load; it tightens once we have a price.
   const wanted = TICK_OPTIONS_BY_COIN[coin];
   const availableTicks =
     referencePrice > 0
       ? wanted.filter((t) => sigFigsFromTick(t, referencePrice) !== null)
       : wanted;
 
-  const currentTick = referencePrice > 0
-    ? tickFromSigFigs(referencePrice, nSigFigs)
-    : null;
+  const currentTick =
+    referencePrice > 0 ? tickFromSigFigs(referencePrice, nSigFigs) : null;
 
   return (
-    <label className="relative inline-flex items-center text-[15px] text-text">
-      <span className="sr-only">Price precision</span>
-      <select
-        value={currentTick ?? ""}
-        onChange={(e) => onTickChange(Number(e.target.value))}
-        className="appearance-none bg-transparent pr-6 cursor-pointer focus:outline-none font-mono"
+    <Select
+      value={currentTick !== null ? String(currentTick) : undefined}
+      onValueChange={(v) => onTickChange(Number(v))}
+    >
+      <SelectTrigger
+        aria-label="Tick precision"
+        className="text-[15px] text-text font-mono"
       >
+        <span className="text-[12px] uppercase tracking-wide text-text font-sans">
+          Tick
+        </span>
+        <span>{currentTick !== null ? formatTick(currentTick) : "—"}</span>
+        <span className="text-[12px] uppercase tracking-wide text-muted font-sans">
+          USD
+        </span>
+      </SelectTrigger>
+      <SelectContent>
         {availableTicks.map((tick) => (
-          <option key={tick} value={tick} className="bg-panel font-mono">
-            {formatTick(tick)}
-          </option>
+          <SelectItem
+            key={tick}
+            value={String(tick)}
+            className="font-mono text-[14px]"
+          >
+            <span className="inline-flex items-center gap-1">
+              {formatTick(tick)}
+              <span className="text-[11px] uppercase tracking-wide text-muted font-sans">
+                USD
+              </span>
+            </span>
+          </SelectItem>
         ))}
-      </select>
-      <Chevron />
-    </label>
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -277,24 +292,28 @@ function CoinSelect({
   onChange: (coin: Coin) => void;
 }) {
   return (
-    <label className="relative inline-flex items-center gap-2 text-[15px] text-text">
-      <span className="text-[12px] uppercase tracking-wide text-text">
-        Symbol
-      </span>
-      <CoinIcon coin={value} />
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as Coin)}
-        className="appearance-none bg-transparent pr-6 cursor-pointer focus:outline-none font-medium"
+    <Select value={value} onValueChange={(v) => onChange(v as Coin)}>
+      <SelectTrigger
+        aria-label="Symbol"
+        className="text-[15px] text-text font-medium"
       >
+        <span className="text-[12px] uppercase tracking-wide text-text font-normal">
+          Symbol
+        </span>
+        <CoinIcon coin={value} />
+        <span>{value}</span>
+      </SelectTrigger>
+      <SelectContent>
         {COINS.map((c) => (
-          <option key={c} value={c} className="bg-panel">
-            {c}
-          </option>
+          <SelectItem key={c} value={c} className="text-[14px]">
+            <span className="inline-flex items-center gap-2">
+              <CoinIcon coin={c} />
+              {c}
+            </span>
+          </SelectItem>
         ))}
-      </select>
-      <Chevron />
-    </label>
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -352,8 +371,10 @@ function StatusDot({
 }
 
 // memo'd with flat primitive props so unchanged rows skip render between WS
-// frames. The parent's row object reference is new each frame, so passing
-// `row={...}` would defeat shallow comparison.
+// frames. Each row tracks its own hover state and, while hovered, freezes
+// the displayed sz/total/ratio so the user can read a stable snapshot —
+// live data keeps flowing in props but isn't shown until they move off the
+// row.
 const BookRow = memo(function BookRow({
   side,
   px,
@@ -375,10 +396,29 @@ const BookRow = memo(function BookRow({
 }) {
   const ratio = Math.max(0.04, total / maxTotal);
   const fill = side === "ask" ? "bg-ask-fill" : "bg-bid-fill";
+  const flashBar = side === "ask" ? "bg-ask" : "bg-bid";
   const priceColor = side === "ask" ? "text-ask" : "text-bid";
   const weight = emphasized ? "font-medium" : "";
 
-  const cellRef = useRef<HTMLDivElement>(null);
+  // Per-row hover + frozen snapshot. When hovering, display these instead of
+  // the live props. Live props keep arriving and are mirrored into refs so
+  // the flash effect tracks them; un-hover doesn't fire a spurious flash.
+  const [isHovering, setIsHovering] = useState(false);
+  const frozenRef = useRef<{ sz: string; total: number; ratio: number } | null>(
+    null,
+  );
+
+  const showSz =
+    isHovering && frozenRef.current ? frozenRef.current.sz : sz;
+  const showTotal =
+    isHovering && frozenRef.current ? frozenRef.current.total : total;
+  const showRatio =
+    isHovering && frozenRef.current ? frozenRef.current.ratio : ratio;
+  // Suppress the tick arrow while frozen so a fresh ▲/▼ can't appear next
+  // to a stale price.
+  const showTick = isHovering ? null : tick;
+
+  const flashRef = useRef<HTMLSpanElement>(null);
   const prevSzRef = useRef<string>(sz);
   const prevTickTsRef = useRef<number | null>(tick?.ts ?? null);
   useEffect(() => {
@@ -387,46 +427,67 @@ const BookRow = memo(function BookRow({
     prevSzRef.current = sz;
     prevTickTsRef.current = tick?.ts ?? null;
     if (!szChanged && !tickFired) return;
-    const el = cellRef.current;
+    // Track refs but don't visually flash while hovered.
+    if (isHovering) return;
+    const el = flashRef.current;
     if (!el) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const flashColor =
-      side === "ask" ? "rgba(237, 88, 116, 0.35)" : "rgba(77, 214, 184, 0.35)";
-    el.animate(
-      [{ backgroundColor: flashColor }, { backgroundColor: "rgba(0,0,0,0)" }],
-      { duration: 420, easing: "ease-out" },
-    );
-  }, [sz, tick, side]);
+    el.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: 420,
+      easing: "ease-out",
+      fill: "forwards",
+    });
+  }, [sz, tick, isHovering]);
 
   return (
     <div
-      ref={cellRef}
       role="row"
+      onMouseEnter={() => {
+        frozenRef.current = { sz, total, ratio };
+        setIsHovering(true);
+      }}
+      onMouseLeave={() => {
+        frozenRef.current = null;
+        setIsHovering(false);
+      }}
       className="relative grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[26px] text-[13px] hover:bg-white/[0.03] transition-colors"
     >
+      {/* Cumulative-size bar (right-anchored). */}
       <span
         aria-hidden="true"
         className={`absolute inset-y-0 right-0 ${fill}`}
-        style={{ width: `${ratio * 100}%` }}
+        style={{ width: `${showRatio * 100}%` }}
       />
-      <span className={`relative ${priceColor} ${weight} font-mono flex items-center gap-1`}>
+      {/* Update flash: 4px left-edge bar, opacity 1→0 on size/tick change. */}
+      <span
+        ref={flashRef}
+        aria-hidden="true"
+        className={`absolute inset-y-0 left-0 w-1 ${flashBar} opacity-0 pointer-events-none`}
+      />
+      <span
+        className={`relative ${priceColor} ${weight} font-mono flex items-center gap-1`}
+      >
         {formatPrice(px)}
-        {tick && (
+        {showTick && (
           <span
-            key={tick.ts}
+            key={showTick.ts}
             aria-hidden="true"
-            className={`text-[9px] leading-none ${tick.dir === "up" ? "text-bid" : "text-ask"}`}
+            className={`text-[9px] leading-none ${showTick.dir === "up" ? "text-bid" : "text-ask"}`}
             style={{ animation: "tick-fade 1.5s forwards" }}
           >
-            {tick.dir === "up" ? "▲" : "▼"}
+            {showTick.dir === "up" ? "▲" : "▼"}
           </span>
         )}
       </span>
-      <span className={`relative text-right text-text ${weight} font-mono`}>
-        {formatSize(sz, sizeDecimals)}
+      <span
+        className={`relative text-right text-text ${weight} font-mono`}
+      >
+        {formatSize(showSz, sizeDecimals)}
       </span>
-      <span className={`relative text-right text-text ${weight} font-mono`}>
-        {formatSize(total, sizeDecimals)}
+      <span
+        className={`relative text-right text-text ${weight} font-mono`}
+      >
+        {formatSize(showTotal, sizeDecimals)}
       </span>
     </div>
   );
@@ -455,15 +516,12 @@ function SpreadRow({
   bidShare: number;
 }) {
   const pct = formatSpreadPercent(spread, mid);
-  // Brighter default colors (high baseline opacity) + a CSS `brightness`
-  // filter that ramps the dominant side past 1.0 toward a washed-bright
-  // tint. The opposite side holds at brightness(1) — never dimmed. Using a
-  // filter (rather than further opacity) lets the visual scaling stay
-  // perceptible even though the baseline is already bright.
   const BASE = 1;
   const PEAK = 1.4;
-  const bidBrightness = BASE + (PEAK - BASE) * Math.max(0, (bidShare - 0.5) * 2);
-  const askBrightness = BASE + (PEAK - BASE) * Math.max(0, (0.5 - bidShare) * 2);
+  const bidBrightness =
+    BASE + (PEAK - BASE) * Math.max(0, (bidShare - 0.5) * 2);
+  const askBrightness =
+    BASE + (PEAK - BASE) * Math.max(0, (0.5 - bidShare) * 2);
   return (
     <div
       role="row"
@@ -475,8 +533,6 @@ function SpreadRow({
         {spread > 0 ? formatPrice(spread) : "—"}
       </span>
       <span className="text-right font-mono">{pct}</span>
-      {/* Imbalance: width of bid (left) vs ask (right) reflects depth balance
-          across the visible levels. Replaces the bottom border. */}
       <span
         aria-hidden="true"
         className="absolute inset-x-0 bottom-0 h-1.5 flex opacity-90"
@@ -494,16 +550,6 @@ function SpreadRow({
         />
       </span>
     </div>
-  );
-}
-
-function Chevron() {
-  return (
-    <ChevronDown
-      aria-hidden="true"
-      strokeWidth={1.75}
-      className="absolute right-0 w-4 h-4 text-text pointer-events-none"
-    />
   );
 }
 
