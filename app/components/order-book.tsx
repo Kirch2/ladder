@@ -75,7 +75,7 @@ export function OrderBook() {
   return (
     <section
       aria-label={`${coin}-USD order book`}
-      className="w-full max-w-[400px] rounded-md border border-line bg-panel overflow-hidden font-sans"
+      className="w-full max-w-[440px] rounded-md border border-line bg-panel overflow-hidden font-sans"
     >
       <ControlBar
         coin={coin}
