@@ -69,7 +69,7 @@ export function OrderBook() {
   };
 
   // Reverse asks so the best ask sits immediately above the spread row.
-  const askDisplay = useMemo(() => [...askRows].reverse(), [askRows]);
+  const askDisplay = [...askRows].reverse();
 
   const sizeDecimals = SIZE_DECIMALS[coin];
 
@@ -189,10 +189,10 @@ function PrecisionSelect({
   // Fall back to the full list before the first frame lands so the dropdown
   // renders usable on cold load; it tightens once we have a price.
   const wanted = TICK_OPTIONS_BY_COIN[coin];
-  const availableTicks = useMemo(() => {
-    if (referencePrice <= 0) return [...wanted];
-    return wanted.filter((t) => sigFigsFromTick(t, referencePrice) !== null);
-  }, [referencePrice, wanted]);
+  const availableTicks =
+    referencePrice > 0
+      ? wanted.filter((t) => sigFigsFromTick(t, referencePrice) !== null)
+      : wanted;
 
   const currentTick = referencePrice > 0
     ? tickFromSigFigs(referencePrice, nSigFigs)

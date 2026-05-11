@@ -113,12 +113,7 @@ export function useOrderBook(coin: Coin, nSigFigs: NSigFigs): OrderBookSnapshot 
       stopped = true;
       document.removeEventListener("visibilitychange", handleVisibility);
       if (reconnectTimer) clearTimeout(reconnectTimer);
-      const ws = wsRef.current;
-      const sub = activeSubRef.current;
-      if (ws && ws.readyState === WebSocket.OPEN && sub) {
-        ws.send(JSON.stringify({ method: "unsubscribe", subscription: sub }));
-      }
-      ws?.close();
+      wsRef.current?.close();
     };
   }, []);
 
