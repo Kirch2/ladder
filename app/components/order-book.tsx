@@ -297,9 +297,6 @@ function CoinSelect({
         aria-label="Symbol"
         className="text-[15px] text-text font-medium"
       >
-        <span className="text-[12px] uppercase tracking-wide text-text font-normal">
-          Symbol
-        </span>
         <CoinIcon coin={value} />
         <span>{value}</span>
       </SelectTrigger>
