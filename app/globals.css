@@ -40,3 +40,13 @@ select {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+@keyframes tick-fade {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}

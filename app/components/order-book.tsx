@@ -22,6 +22,8 @@ import { useOrderBook } from "@/app/hooks/use-order-book";
 
 const ROWS_PER_SIDE = 14;
 
+type Tick = { dir: "up" | "down"; ts: number } | null;
+
 export function OrderBook() {
   const [coin, setCoin] = useState<Coin>("BTC");
   const [nSigFigs, setNSigFigs] = useState<NSigFigs>(5);
@@ -34,17 +36,55 @@ export function OrderBook() {
   const askRows = useMemo(() => buildRows(asks, ROWS_PER_SIDE), [asks]);
   const bidRows = useMemo(() => buildRows(bids, ROWS_PER_SIDE), [bids]);
 
-  const maxTotal = Math.max(
-    askRows.at(-1)?.total ?? 0,
-    bidRows.at(-1)?.total ?? 0,
-    1,
-  );
+  const totalBid = bidRows.at(-1)?.total ?? 0;
+  const totalAsk = askRows.at(-1)?.total ?? 0;
+  const maxTotal = Math.max(totalAsk, totalBid, 1);
+  // Imbalance: 0.5 = balanced, >0.5 = bids dominate visible depth.
+  const bidShare =
+    totalBid + totalAsk > 0 ? totalBid / (totalBid + totalAsk) : 0.5;
 
   const bestAsk = Number(asks[0]?.px ?? "0");
   const bestBid = Number(bids[0]?.px ?? "0");
   const mid = bestAsk > 0 && bestBid > 0 ? (bestAsk + bestBid) / 2 : 0;
   const spread = bestAsk > 0 && bestBid > 0 ? bestAsk - bestBid : 0;
   const referencePrice = mid || bestAsk || bestBid;
+
+  // Directional tick on each side: fires for ~1.5s when the inside price
+  // moves, then auto-clears. The inside BookRow shows a ▲/▼ glyph during that
+  // window so a price tick is visible even when size at the new level didn't
+  // change.
+  const [bidTick, setBidTick] = useState<Tick>(null);
+  const [askTick, setAskTick] = useState<Tick>(null);
+  const prevBestBidRef = useRef(0);
+  const prevBestAskRef = useRef(0);
+  const bidTickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const askTickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const prev = prevBestBidRef.current;
+    prevBestBidRef.current = bestBid;
+    if (prev <= 0 || bestBid <= 0 || prev === bestBid) return;
+    setBidTick({ dir: bestBid > prev ? "up" : "down", ts: Date.now() });
+    if (bidTickTimerRef.current) clearTimeout(bidTickTimerRef.current);
+    bidTickTimerRef.current = setTimeout(() => setBidTick(null), 1500);
+  }, [bestBid]);
+
+  useEffect(() => {
+    const prev = prevBestAskRef.current;
+    prevBestAskRef.current = bestAsk;
+    if (prev <= 0 || bestAsk <= 0 || prev === bestAsk) return;
+    setAskTick({ dir: bestAsk > prev ? "up" : "down", ts: Date.now() });
+    if (askTickTimerRef.current) clearTimeout(askTickTimerRef.current);
+    askTickTimerRef.current = setTimeout(() => setAskTick(null), 1500);
+  }, [bestAsk]);
+
+  // Reset ticks when the coin changes — prior price snapshot is meaningless.
+  useEffect(() => {
+    prevBestBidRef.current = 0;
+    prevBestAskRef.current = 0;
+    setBidTick(null);
+    setAskTick(null);
+  }, [coin]);
 
   // Keep a stable price across the empty-book gap during re-subscription, so
   // the precision dropdown doesn't flash to the first option while the new
@@ -107,39 +147,47 @@ export function OrderBook() {
           ? Array.from({ length: ROWS_PER_SIDE }, (_, i) => (
               <SkeletonRow key={`ask-skel-${i}`} />
             ))
-          : askDisplay.map((row, i) => (
-              <BookRow
-                key={`ask-${row.px}`}
-                side="ask"
-                px={row.px}
-                sz={row.sz}
-                total={row.total}
-                maxTotal={maxTotal}
-                sizeDecimals={sizeDecimals}
-                emphasized={i === askDisplay.length - 1}
-              />
-            ))}
+          : askDisplay.map((row, i) => {
+              const isInside = i === askDisplay.length - 1;
+              return (
+                <BookRow
+                  key={`ask-${row.px}`}
+                  side="ask"
+                  px={row.px}
+                  sz={row.sz}
+                  total={row.total}
+                  maxTotal={maxTotal}
+                  sizeDecimals={sizeDecimals}
+                  emphasized={isInside}
+                  tick={isInside ? askTick : null}
+                />
+              );
+            })}
       </div>
 
-      <SpreadRow spread={spread} mid={mid} />
+      <SpreadRow spread={spread} mid={mid} bidShare={bidShare} />
 
       <div role="rowgroup" aria-label="Bids" className="space-y-0.5">
         {bidRows.length === 0
           ? Array.from({ length: ROWS_PER_SIDE }, (_, i) => (
               <SkeletonRow key={`bid-skel-${i}`} />
             ))
-          : bidRows.map((row, i) => (
-              <BookRow
-                key={`bid-${row.px}`}
-                side="bid"
-                px={row.px}
-                sz={row.sz}
-                total={row.total}
-                maxTotal={maxTotal}
-                sizeDecimals={sizeDecimals}
-                emphasized={i === 0}
-              />
-            ))}
+          : bidRows.map((row, i) => {
+              const isInside = i === 0;
+              return (
+                <BookRow
+                  key={`bid-${row.px}`}
+                  side="bid"
+                  px={row.px}
+                  sz={row.sz}
+                  total={row.total}
+                  maxTotal={maxTotal}
+                  sizeDecimals={sizeDecimals}
+                  emphasized={isInside}
+                  tick={isInside ? bidTick : null}
+                />
+              );
+            })}
       </div>
     </section>
   );
@@ -332,6 +380,7 @@ const BookRow = memo(function BookRow({
   maxTotal,
   sizeDecimals,
   emphasized = false,
+  tick = null,
 }: {
   side: "ask" | "bid";
   px: string;
@@ -340,6 +389,7 @@ const BookRow = memo(function BookRow({
   maxTotal: number;
   sizeDecimals: number;
   emphasized?: boolean;
+  tick?: Tick;
 }) {
   const ratio = Math.max(0.04, total / maxTotal);
   const fill = side === "ask" ? "bg-ask-fill" : "bg-bid-fill";
@@ -347,11 +397,14 @@ const BookRow = memo(function BookRow({
   const weight = emphasized ? "font-medium" : "";
 
   const cellRef = useRef<HTMLDivElement>(null);
-  // Seed prev with the current size so the first effect run (mount) doesn't flash.
-  const prevSizeRef = useRef<string>(sz);
+  const prevSzRef = useRef<string>(sz);
+  const prevTickTsRef = useRef<number | null>(tick?.ts ?? null);
   useEffect(() => {
-    if (prevSizeRef.current === sz) return;
-    prevSizeRef.current = sz;
+    const szChanged = prevSzRef.current !== sz;
+    const tickFired = tick !== null && prevTickTsRef.current !== tick.ts;
+    prevSzRef.current = sz;
+    prevTickTsRef.current = tick?.ts ?? null;
+    if (!szChanged && !tickFired) return;
     const el = cellRef.current;
     if (!el) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -361,7 +414,7 @@ const BookRow = memo(function BookRow({
       [{ backgroundColor: flashColor }, { backgroundColor: "rgba(0,0,0,0)" }],
       { duration: 420, easing: "ease-out" },
     );
-  }, [sz, side]);
+  }, [sz, tick, side]);
 
   return (
     <div
@@ -374,7 +427,19 @@ const BookRow = memo(function BookRow({
         className={`absolute inset-y-0 right-0 ${fill}`}
         style={{ width: `${ratio * 100}%` }}
       />
-      <span className={`relative ${priceColor} ${weight} font-mono`}>{formatPrice(px)}</span>
+      <span className={`relative ${priceColor} ${weight} font-mono flex items-center gap-1`}>
+        {tick && (
+          <span
+            key={tick.ts}
+            aria-hidden="true"
+            className={`text-[9px] leading-none ${tick.dir === "up" ? "text-bid" : "text-ask"}`}
+            style={{ animation: "tick-fade 1.5s forwards" }}
+          >
+            {tick.dir === "up" ? "▲" : "▼"}
+          </span>
+        )}
+        {formatPrice(px)}
+      </span>
       <span className={`relative text-right text-text ${weight} font-mono`}>
         {formatSize(sz, sizeDecimals)}
       </span>
@@ -398,19 +463,39 @@ const SkeletonRow = memo(function SkeletonRow() {
   );
 });
 
-function SpreadRow({ spread, mid }: { spread: number; mid: number }) {
+function SpreadRow({
+  spread,
+  mid,
+  bidShare,
+}: {
+  spread: number;
+  mid: number;
+  bidShare: number;
+}) {
   const pct = formatSpreadPercent(spread, mid);
   return (
     <div
       role="row"
       aria-label="Spread"
-      className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[28px] text-[12px] text-muted border-y border-line"
+      className="relative grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[28px] text-[12px] text-muted border-t border-line"
     >
       <span className="text-center">Spread</span>
       <span className="text-right font-mono">
         {spread > 0 ? formatPrice(spread) : "—"}
       </span>
       <span className="text-right font-mono">{pct}</span>
+      {/* Imbalance: width of bid (left) vs ask (right) reflects depth balance
+          across the visible levels. Replaces the bottom border. */}
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 h-[2px] flex opacity-60"
+      >
+        <span
+          className="bg-bid transition-[width] duration-500"
+          style={{ width: `${bidShare * 100}%` }}
+        />
+        <span className="bg-ask flex-1" />
+      </span>
     </div>
   );
 }
