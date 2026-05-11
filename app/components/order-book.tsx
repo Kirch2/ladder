@@ -20,7 +20,7 @@ import {
 } from "@/app/lib/format";
 import { useOrderBook } from "@/app/hooks/use-order-book";
 
-const ROWS_PER_SIDE = 12;
+const ROWS_PER_SIDE = 14;
 
 export function OrderBook() {
   const [coin, setCoin] = useState<Coin>("BTC");
