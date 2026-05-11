@@ -157,8 +157,6 @@ export function OrderBook() {
   );
 }
 
-// ─── Control bar ───────────────────────────────────────────────────────
-
 function ControlBar({
   coin,
   onCoinChange,
@@ -203,10 +201,8 @@ function PrecisionSelect({
   onTickChange: (tick: number) => void;
   referencePrice: number;
 }) {
-  // Filter the per-coin tick list down to what the API can actually serve at
-  // the current reference price. If we have no price yet, fall back to all of
-  // them — the dropdown will start usable and re-render once the first frame
-  // lands.
+  // Fall back to the full list before the first frame lands so the dropdown
+  // renders usable on cold load; it tightens once we have a price.
   const wanted = TICK_OPTIONS_BY_COIN[coin];
   const availableTicks = useMemo(() => {
     if (referencePrice <= 0) return [...wanted];
@@ -337,8 +333,6 @@ function StatusDot({
   );
 }
 
-// ─── Rows ──────────────────────────────────────────────────────────────
-
 function BookRow({
   side,
   row,
@@ -357,16 +351,15 @@ function BookRow({
   const priceColor = side === "ask" ? "text-ask" : "text-bid";
   const weight = emphasized ? "font-medium" : "";
 
-  // Flash when the size at this level changes.
   const cellRef = useRef<HTMLDivElement>(null);
+  // Seed prev with the current size so the first effect run (mount) doesn't flash.
   const prevSizeRef = useRef<string>(row.sz);
   useEffect(() => {
     if (prevSizeRef.current === row.sz) return;
     prevSizeRef.current = row.sz;
     const el = cellRef.current;
     if (!el) return;
-    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)
-      return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const flashColor =
       side === "ask" ? "rgba(237, 88, 116, 0.35)" : "rgba(77, 214, 184, 0.35)";
     el.animate(
@@ -426,8 +419,6 @@ function SpreadRow({ spread, mid }: { spread: number; mid: number }) {
     </div>
   );
 }
-
-// ─── Bits ──────────────────────────────────────────────────────────────
 
 function Chevron() {
   return (
