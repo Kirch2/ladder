@@ -41,7 +41,7 @@ app/
 │   ├── control-bar.tsx       # header: precision + status + symbol
 │   ├── precision-select.tsx  # Tick dropdown
 │   ├── coin-select.tsx       # Symbol dropdown
-│   ├── coin-icon.tsx         # PNG icon (<img> from GitHub raw)
+│   ├── coin-icon.tsx         # inline SVG mark per coin
 │   ├── status-dot.tsx        # live / connecting / stale / error
 │   ├── skeleton-row.tsx
 │   ├── types.ts              # Tick type
