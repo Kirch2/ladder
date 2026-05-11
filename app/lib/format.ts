@@ -38,47 +38,30 @@ export function formatSize(value: string | number, decimals = 5): string {
   });
 }
 
-import type { Mantissa, NSigFigs } from "./hyperliquid";
+import type { NSigFigs } from "./hyperliquid";
 
 /**
- * Reverse-derive (nSigFigs, mantissa) from a desired tick at a reference price.
- * Returns null if the tick isn't achievable.
- *
- * Hyperliquid constraint (verified empirically against the WS): `mantissa`
- * (2 or 5) is only accepted when `nSigFigs === 5`. Sending mantissa with any
- * other nSigFigs causes the server to close the connection with code 1006.
- * So mantissa ∈ {2, 5} is only paired with nSigFigs=5 here.
+ * Compute the price tick produced by a given nSigFigs at a reference price.
+ * 5 sig figs of $42,000 → tick $1; 4 sig figs → $10; and so on.
  */
-export function tickToParams(
-  tick: number,
-  refPrice: number,
-): { nSigFigs: NSigFigs; mantissa: Mantissa } | null {
-  if (!Number.isFinite(refPrice) || refPrice <= 0) return null;
+export function tickFromSigFigs(refPrice: number, nSigFigs: NSigFigs): number {
+  if (!Number.isFinite(refPrice) || refPrice <= 0) return 0;
   const baseExp = Math.floor(Math.log10(refPrice));
-  for (const nSigFigs of [5, 4, 3, 2] as const) {
-    const baseTick = Math.pow(10, baseExp - nSigFigs + 1);
-    for (const mantissa of [1, 2, 5] as const) {
-      if (mantissa !== 1 && nSigFigs !== 5) continue;
-      const candidate = mantissa * baseTick;
-      if (Math.abs(candidate - tick) <= tick * 1e-9) {
-        return { nSigFigs, mantissa };
-      }
-    }
-  }
-  return null;
+  return Math.pow(10, baseExp - nSigFigs + 1);
 }
 
 /**
- * Forward: compute the tick produced by a given (nSigFigs, mantissa) at a price.
+ * Reverse: find the nSigFigs that yields a desired tick at a reference price.
+ * Returns null if the tick isn't a power of 10 reachable within nSigFigs ∈ {2..5}.
  */
-export function tickFromParams(
-  refPrice: number,
-  nSigFigs: NSigFigs,
-  mantissa: Mantissa,
-): number {
-  if (!Number.isFinite(refPrice) || refPrice <= 0) return mantissa;
+export function sigFigsFromTick(tick: number, refPrice: number): NSigFigs | null {
+  if (!Number.isFinite(refPrice) || refPrice <= 0) return null;
   const baseExp = Math.floor(Math.log10(refPrice));
-  return mantissa * Math.pow(10, baseExp - nSigFigs + 1);
+  for (const n of [5, 4, 3, 2] as const) {
+    const candidate = Math.pow(10, baseExp - n + 1);
+    if (Math.abs(candidate - tick) <= tick * 1e-9) return n;
+  }
+  return null;
 }
 
 export function formatTick(tick: number): string {

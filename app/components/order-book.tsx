@@ -7,7 +7,6 @@ import {
   TICK_OPTIONS_BY_COIN,
   type Coin,
   type ConnectionState,
-  type Mantissa,
   type NSigFigs,
   type RawLevel,
 } from "@/app/lib/hyperliquid";
@@ -16,8 +15,8 @@ import {
   formatSize,
   formatSpreadPercent,
   formatTick,
-  tickFromParams,
-  tickToParams,
+  sigFigsFromTick,
+  tickFromSigFigs,
 } from "@/app/lib/format";
 import { useOrderBook } from "@/app/hooks/use-order-book";
 
@@ -42,12 +41,10 @@ function buildRows(levels: RawLevel[], rows: number): LevelRow[] {
 export function OrderBook() {
   const [coin, setCoin] = useState<Coin>("BTC");
   const [nSigFigs, setNSigFigs] = useState<NSigFigs>(5);
-  const [mantissa, setMantissa] = useState<Mantissa>(1);
 
   const { bids, asks, connectionState, lastMessageAt } = useOrderBook(
     coin,
     nSigFigs,
-    mantissa,
   );
 
   const askRows = useMemo(() => buildRows(asks, ROWS_PER_SIDE), [asks]);
@@ -81,10 +78,9 @@ export function OrderBook() {
   const stablePrice = stablePriceRef.current.price || referencePrice;
 
   const handleTickChange = (tick: number) => {
-    const params = tickToParams(tick, stablePrice);
-    if (!params) return;
-    setNSigFigs(params.nSigFigs);
-    setMantissa(params.mantissa);
+    const next = sigFigsFromTick(tick, stablePrice);
+    if (next === null) return;
+    setNSigFigs(next);
   };
 
   // Reverse asks so the best ask sits immediately above the spread row.
@@ -101,7 +97,6 @@ export function OrderBook() {
         coin={coin}
         onCoinChange={setCoin}
         nSigFigs={nSigFigs}
-        mantissa={mantissa}
         onTickChange={handleTickChange}
         referencePrice={stablePrice}
         connectionState={connectionState}
@@ -168,7 +163,6 @@ function ControlBar({
   coin,
   onCoinChange,
   nSigFigs,
-  mantissa,
   onTickChange,
   referencePrice,
   connectionState,
@@ -177,7 +171,6 @@ function ControlBar({
   coin: Coin;
   onCoinChange: (coin: Coin) => void;
   nSigFigs: NSigFigs;
-  mantissa: Mantissa;
   onTickChange: (tick: number) => void;
   referencePrice: number;
   connectionState: ConnectionState;
@@ -188,7 +181,6 @@ function ControlBar({
       <PrecisionSelect
         coin={coin}
         nSigFigs={nSigFigs}
-        mantissa={mantissa}
         onTickChange={onTickChange}
         referencePrice={referencePrice}
       />
@@ -203,13 +195,11 @@ function ControlBar({
 function PrecisionSelect({
   coin,
   nSigFigs,
-  mantissa,
   onTickChange,
   referencePrice,
 }: {
   coin: Coin;
   nSigFigs: NSigFigs;
-  mantissa: Mantissa;
   onTickChange: (tick: number) => void;
   referencePrice: number;
 }) {
@@ -220,11 +210,11 @@ function PrecisionSelect({
   const wanted = TICK_OPTIONS_BY_COIN[coin];
   const availableTicks = useMemo(() => {
     if (referencePrice <= 0) return [...wanted];
-    return wanted.filter((t) => tickToParams(t, referencePrice) !== null);
+    return wanted.filter((t) => sigFigsFromTick(t, referencePrice) !== null);
   }, [referencePrice, wanted]);
 
   const currentTick = referencePrice > 0
-    ? tickFromParams(referencePrice, nSigFigs, mantissa)
+    ? tickFromSigFigs(referencePrice, nSigFigs)
     : null;
 
   return (

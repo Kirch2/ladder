@@ -7,7 +7,6 @@ import {
   type ConnectionState,
   type L2BookMessage,
   type L2BookSubscription,
-  type Mantissa,
   type NSigFigs,
   type RawLevel,
 } from "@/app/lib/hyperliquid";
@@ -27,17 +26,13 @@ type OrderBookSnapshot = Book & {
 const EMPTY_BOOK: Book = { bids: [], asks: [] };
 
 /**
- * Maintains a single WebSocket for the lifetime of the hook. When `coin`,
- * `nSigFigs`, or `mantissa` changes we send unsubscribe + subscribe over the
- * same socket rather than tearing it down — Hyperliquid identifies
- * subscriptions by their full shape, so the server resumes streaming at the
- * new precision without a reconnect round-trip.
+ * Maintains a single WebSocket for the lifetime of the hook. When `coin` or
+ * `nSigFigs` changes we send unsubscribe + subscribe over the same socket
+ * rather than tearing it down — Hyperliquid identifies subscriptions by their
+ * full shape, so the server resumes streaming at the new precision without a
+ * reconnect round-trip.
  */
-export function useOrderBook(
-  coin: Coin,
-  nSigFigs: NSigFigs,
-  mantissa: Mantissa,
-): OrderBookSnapshot {
+export function useOrderBook(coin: Coin, nSigFigs: NSigFigs): OrderBookSnapshot {
   const [book, setBook] = useState<Book>(EMPTY_BOOK);
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("connecting");
@@ -103,10 +98,9 @@ export function useOrderBook(
     };
   }, []);
 
-  // Re-subscribe on any precision-shape change without tearing down the socket.
+  // Re-subscribe on coin or nSigFigs change without tearing down the socket.
   useEffect(() => {
     const next: L2BookSubscription = { type: "l2Book", coin, nSigFigs };
-    if (mantissa !== 1) next.mantissa = mantissa;
     const ws = wsRef.current;
     const previous = activeSubRef.current;
 
@@ -121,7 +115,7 @@ export function useOrderBook(
       }
       ws.send(JSON.stringify({ method: "subscribe", subscription: next }));
     }
-  }, [coin, nSigFigs, mantissa]);
+  }, [coin, nSigFigs]);
 
   return { ...book, connectionState, lastMessageAt };
 }
