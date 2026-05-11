@@ -468,7 +468,7 @@ function SpreadRow({
     <div
       role="row"
       aria-label="Spread"
-      className="relative grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[28px] text-[12px] text-muted border-t border-line"
+      className="relative grid grid-cols-[1fr_1fr_1fr] items-center gap-2 px-3 h-[30px] text-[13px] text-text border-t border-line"
     >
       <span className="text-center">Spread</span>
       <span className="text-right font-mono">
