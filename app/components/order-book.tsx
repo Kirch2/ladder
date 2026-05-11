@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   COINS,
   SIZE_DECIMALS,
-  TICK_OPTIONS,
+  TICK_OPTIONS_BY_COIN,
   type Coin,
   type ConnectionState,
   type Mantissa,
@@ -186,6 +186,7 @@ function ControlBar({
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-line">
       <PrecisionSelect
+        coin={coin}
         nSigFigs={nSigFigs}
         mantissa={mantissa}
         onTickChange={onTickChange}
@@ -200,23 +201,27 @@ function ControlBar({
 }
 
 function PrecisionSelect({
+  coin,
   nSigFigs,
   mantissa,
   onTickChange,
   referencePrice,
 }: {
+  coin: Coin;
   nSigFigs: NSigFigs;
   mantissa: Mantissa;
   onTickChange: (tick: number) => void;
   referencePrice: number;
 }) {
-  // Filter the wanted ticks down to the ones the API can actually serve at the
-  // current reference price. If we have no price yet, fall back to all of them
-  // — the dropdown will start usable and re-render once the first frame lands.
+  // Filter the per-coin tick list down to what the API can actually serve at
+  // the current reference price. If we have no price yet, fall back to all of
+  // them — the dropdown will start usable and re-render once the first frame
+  // lands.
+  const wanted = TICK_OPTIONS_BY_COIN[coin];
   const availableTicks = useMemo(() => {
-    if (referencePrice <= 0) return Array.from(TICK_OPTIONS);
-    return TICK_OPTIONS.filter((t) => tickToParams(t, referencePrice) !== null);
-  }, [referencePrice]);
+    if (referencePrice <= 0) return [...wanted];
+    return wanted.filter((t) => tickToParams(t, referencePrice) !== null);
+  }, [referencePrice, wanted]);
 
   const currentTick = referencePrice > 0
     ? tickFromParams(referencePrice, nSigFigs, mantissa)

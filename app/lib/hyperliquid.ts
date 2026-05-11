@@ -6,9 +6,13 @@ export type Mantissa = 1 | 2 | 5;
 
 export const COINS: Coin[] = ["BTC", "ETH"];
 
-/** Tick values shown in the precision dropdown. Filtered per-coin by what's
- * achievable at the current reference price. */
-export const TICK_OPTIONS = [1, 2, 5, 10, 100, 1000] as const;
+/** Tick values shown in the precision dropdown, per coin — matches the lists
+ * hyperliquid.xyz surfaces for each asset. Filtered at runtime to whatever the
+ * API can actually serve at the current reference price. */
+export const TICK_OPTIONS_BY_COIN: Record<Coin, readonly number[]> = {
+  BTC: [1, 2, 5, 10, 100, 1000],
+  ETH: [0.1, 0.2, 0.5, 1, 10, 100],
+};
 
 /** Display precision for the size column, per asset, matching hyperliquid.xyz. */
 export const SIZE_DECIMALS: Record<Coin, number> = { BTC: 5, ETH: 4 };
